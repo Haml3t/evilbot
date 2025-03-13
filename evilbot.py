@@ -47,6 +47,7 @@ async def showsongtitles(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text("No song titles have been added yet.")
         return
     #message = "\n".join([f"{song} (by {user} on {time})" for song, user, time in rows])
+    # TODO maybe add some more info here
     message = "\n".join([f"{song}" for song, user, time in rows])
     await update.message.reply_text(message)
 
