@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -10,6 +11,16 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+# load dotenv
+load_dotenv()
+
+import os
+from telegram.ext import Application, CommandHandler, ContextTypes
+
+TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+if not TOKEN:
+    raise ValueError("No Telegram API token found in environment variables.")
 
 # Connect to (or create) the SQLite database
 conn = sqlite3.connect('evilbot.db', check_same_thread=False)
@@ -47,7 +58,6 @@ async def showsongtitles(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text("No song titles have been added yet.")
         return
     #message = "\n".join([f"{song} (by {user} on {time})" for song, user, time in rows])
-    # TODO maybe add some more info here
     message = "\n".join([f"{song}" for song, user, time in rows])
     await update.message.reply_text(message)
 
@@ -79,7 +89,6 @@ async def hello(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("😈")
 
 def main():
-    TOKEN = '7929728569:AAHNyjIm25QL_kMImUS4t8bZY6IXWZrWcx4'
     # Build the application using the new Application builder pattern
     application = Application.builder().token(TOKEN).build()
 
