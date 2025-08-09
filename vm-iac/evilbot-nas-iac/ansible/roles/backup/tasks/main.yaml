@@ -1,0 +1,80 @@
+# Ensure local backup dir exists
+- name: Ensure backup directory exists locally
+  ansible.builtin.file:
+    path: "{{ backup_dir | default('backups/evilbot-nas') }}"
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+# --- existing backups ---
+- name: Back up SSH server config
+  ansible.builtin.fetch:
+    src: /etc/ssh/sshd_config
+    dest: "{{ backup_dir }}/etc/ssh/"
+    flat: yes
+
+- name: Back up SSH host keys (pub + priv)
+  ansible.builtin.fetch:
+    src: "{{ item }}"
+    dest: "{{ backup_dir }}/"
+    flat: yes
+  loop:
+    - /etc/ssh/ssh_host_ed25519_key
+    - /etc/ssh/ssh_host_ed25519_key.pub
+    - /etc/ssh/ssh_host_rsa_key
+    - /etc/ssh/ssh_host_rsa_key.pub
+  ignore_errors: true
+
+- name: Back up fstab
+  ansible.builtin.fetch:
+    src: /etc/fstab
+    dest: "{{ backup_dir }}/etc/"
+    flat: yes
+
+- name: Back up netplan (if present)
+  ansible.builtin.fetch:
+    src: /etc/netplan/00-installer-config.yaml
+    dest: "{{ backup_dir }}/etc/netplan.yaml"
+    flat: yes
+  ignore_errors: true
+
+- name: Save package list
+  shell: dpkg --get-selections > /tmp/package-list.txt
+  args:
+    creates: /tmp/package-list.txt
+
+- name: Fetch package list
+  ansible.builtin.fetch:
+    src: /tmp/package-list.txt
+    dest: "{{ backup_dir }}/package-list.txt"
+    flat: yes
+
+- name: Back up authorized_keys for david (if present)
+  ansible.builtin.fetch:
+    src: /home/david/.ssh/authorized_keys
+    dest: "{{ backup_dir }}/authorized_keys"
+    flat: yes
+  ignore_errors: true
+
+# --- NEW: export users manifest ---
+
+- name: Collect passwd database
+  ansible.builtin.getent:
+    database: passwd
+
+- name: Collect group database
+  ansible.builtin.getent:
+    database: group
+
+# Render a YAML manifest of normal users (uid >= 1000, not 'nobody'),
+# including their supplementary groups derived from getent group.
+- name: Write users.yml manifest (local)
+  ansible.builtin.template:
+    src: users.yml.j2
+    dest: "{{ backup_dir }}/users.yml"
+    mode: '0644'
+  delegate_to: localhost
+  become: false
+  run_once: true

@@ -1,3 +1,28 @@
-# .gitignore
-.env
-.venv/
+# Ignore .env file in telegram-bot
+telegram-bot/.env
+
+# Ignore top-level .env files
+/.env
+
+# Ignore all virtual environments named .venv at any level
+**/.venv/
+
+# Optional: Ignore other virtual environments by common names
+venv/
+**/venv/
+env/
+**/env/
+
+# Terraform
+terraform/terraform.tfvars
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+
+# Ansible backups/artifacts
+ansible/backups/
+
+# Editor/OS noise
+.DS_Store
+*.swp
