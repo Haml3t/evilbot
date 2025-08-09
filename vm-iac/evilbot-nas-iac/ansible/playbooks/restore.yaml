@@ -1,0 +1,154 @@
+- name: Restore evilbot-nas from backup archive
+  hosts: nas
+  become: true
+  vars:
+    restore_src: ""
+    restore_host_keys: false  # set true to restore /etc/ssh/ssh_host_*
+
+  pre_tasks:
+    - name: Validate restore_src is provided and exists
+      assert:
+        that:
+          - restore_src is defined
+          - restore_src | length > 0
+          - restore_src is exists
+        fail_msg: "restore_src must point to an extracted backup directory."
+
+    - name: Load users manifest if present
+      include_vars:
+        file: "{{ restore_src }}/users.yml"
+        name: restored
+      ignore_errors: true
+
+  handlers:
+    - name: restart ssh
+      service:
+        name: ssh
+        state: restarted
+
+    - name: daemon-reload
+      command: systemctl daemon-reload
+
+  tasks:
+    - name: Ensure /home/david/.ssh exists
+      file:
+        path: /home/david/.ssh
+        state: directory
+        owner: david
+        group: david
+        mode: '0700'
+
+    - name: Restore authorized_keys for david (if present)
+      copy:
+        src: "{{ restore_src }}/authorized_keys"
+        dest: /home/david/.ssh/authorized_keys
+        owner: david
+        group: david
+        mode: '0600'
+      when: lookup('fileglob', restore_src + '/authorized_keys', errors='ignore') | length > 0
+
+    - name: Restore sshd_config (if present)
+      copy:
+        src: "{{ restore_src }}/etc/ssh/sshd_config"
+        dest: /etc/ssh/sshd_config
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart ssh
+      when: lookup('fileglob', restore_src + '/etc/ssh/sshd_config', errors='ignore') | length > 0
+
+    - name: Optionally restore SSH host keys (advanced)
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: root
+        group: root
+        mode: '0600'
+      loop:
+        - { src: "{{ restore_src }}/ssh_host_ed25519_key", dest: "/etc/ssh/ssh_host_ed25519_key" }
+        - { src: "{{ restore_src }}/ssh_host_ed25519_key.pub", dest: "/etc/ssh/ssh_host_ed25519_key.pub" }
+        - { src: "{{ restore_src }}/ssh_host_rsa_key", dest: "/etc/ssh/ssh_host_rsa_key" }
+        - { src: "{{ restore_src }}/ssh_host_rsa_key.pub", dest: "/etc/ssh/ssh_host_rsa_key.pub" }
+      when: restore_host_keys | bool
+      notify: restart ssh
+      ignore_errors: true
+
+    - name: Restore fstab (if present)
+      copy:
+        src: "{{ restore_src }}/etc/fstab"
+        dest: /etc/fstab
+        owner: root
+        group: root
+        mode: '0644'
+      notify: daemon-reload
+      when: lookup('fileglob', restore_src + '/etc/fstab', errors='ignore') | length > 0
+
+    - name: Restore netplan (if present)
+      copy:
+        src: "{{ item }}"
+        dest: /etc/netplan/{{ item | basename }}
+        owner: root
+        group: root
+        mode: '0644'
+      loop: "{{ lookup('fileglob', restore_src + '/etc/netplan/*', wantlist=True) }}"
+      when: lookup('fileglob', restore_src + '/etc/netplan/*', errors='ignore') | length > 0
+      notify: daemon-reload
+
+    - name: apt-get update
+      apt:
+        update_cache: true
+
+    - name: Upload package list (if present)
+      copy:
+        src: "{{ restore_src }}/package-list.txt"
+        dest: /tmp/package-list.txt
+        owner: root
+        group: root
+        mode: '0644'
+      when: lookup('fileglob', restore_src + '/package-list.txt', errors='ignore') | length > 0
+
+    - name: Restore packages from list (if present)
+      shell: |
+        set -euo pipefail
+        dpkg --set-selections < /tmp/package-list.txt
+        apt-get -y dselect-upgrade
+      args:
+        executable: /bin/bash
+      when: lookup('fileglob', '/tmp/package-list.txt', errors='ignore') | length > 0
+
+    - name: netplan apply (if we restored netplan)
+      command: netplan apply
+      when: lookup('fileglob', restore_src + '/etc/netplan/*', errors='ignore') | length > 0
+
+    - name: Mount all filesystems (if fstab changed)
+      command: mount -a
+      when: lookup('fileglob', restore_src + '/etc/fstab', errors='ignore') | length > 0
+
+    # --- NEW: declarative users/groups restore ----
+    - name: Ensure supplementary groups exist (from users.yml)
+      group:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ (restored.users | default([])) | map(attribute='groups') | default([]) | flatten | unique }}"
+      when: restored is defined
+
+    - name: Ensure primary groups exist (name == user, gid from manifest)
+      group:
+        name: "{{ item.name }}"
+        gid: "{{ item.gid }}"
+        state: present
+      loop: "{{ restored.users | default([]) }}"
+      when: restored is defined
+
+    - name: Ensure users exist with uid/gid/shell/home and group membership
+      user:
+        name: "{{ item.name }}"
+        uid: "{{ item.uid }}"
+        group: "{{ item.name }}"        # primary group we just created
+        groups: "{{ (item.groups | default([])) | join(',') }}"
+        shell: "{{ item.shell }}"
+        home: "{{ item.home }}"
+        create_home: yes
+        state: present
+      loop: "{{ restored.users | default([]) }}"
+      when: restored is defined

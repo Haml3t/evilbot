@@ -12,7 +12,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# load dotenv
+# Explicitly load .env from the telegram-bot directory
+env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv()
 
 import os

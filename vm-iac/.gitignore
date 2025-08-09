@@ -1,0 +1,19 @@
+# Any .env in any VM folder
+**/.env
+
+# Python venvs
+**/.venv/
+
+# Terraform noise per project
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/.terraform.tfstate.lock.info
+
+# Ansible backup artifacts
+**/ansible/backups/
+
+# OS/editor junk
+.DS_Store
+*.swp

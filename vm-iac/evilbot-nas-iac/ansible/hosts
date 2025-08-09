@@ -1,0 +1,8 @@
+[nas]
+evilbot-nas
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3
+
+[local]
+localhost ansible_connection=local
