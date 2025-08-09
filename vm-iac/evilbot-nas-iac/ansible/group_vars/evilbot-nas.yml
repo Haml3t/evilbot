@@ -1,0 +1,2 @@
+backup_dir: /mnt/backup
+samba_config_path: /etc/samba
