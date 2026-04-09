@@ -88,6 +88,7 @@ See `/root/.claude/plans/` for in-progress implementation plans.
 4. **Remote Claude access** ✅ — SSH via jump host works for all VMs; see topology table above
 5. **GitHub sync** — Sync this repo to GitHub; portfolio-safe publishing — plan: `github-sync.md`
 6. **Proxmox host safety** — SSH hardening, host config as Ansible IaC, backups, staged change workflow — plan: `proxmox-host-safety.md`
+7. **IaC verification & automated testing** — audit IaC completeness, backup/restore verification, BATS functional tests per service, GitHub Actions CI on self-hosted runner — plan: `infra-testing.md`
 
 ## Working with evilbot Proxmox
 
