@@ -13,12 +13,18 @@ venv/
 env/
 **/env/
 
-# Terraform
-terraform/terraform.tfvars
-terraform/.terraform/
-terraform/.terraform.lock.hcl
-terraform/terraform.tfstate
-terraform/terraform.tfstate.backup
+# Terraform — use ** to catch nested paths (the old relative pattern caused the tfvars leak)
+**/terraform.tfvars
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+
+# Secrets & credentials
+**/.env
+**/secrets.yml
+**/vault.yml
+**/.secrets/
 
 # Ansible backups/artifacts
 ansible/backups/
