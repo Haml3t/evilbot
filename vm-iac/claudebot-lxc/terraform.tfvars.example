@@ -1,0 +1,17 @@
+# Copy to terraform.tfvars and fill in — terraform.tfvars is gitignored, never commit it.
+
+proxmox_api_token = "terraform-lxc@pve!lxc=<token-secret>"
+
+vm_id            = 301
+hostname         = "claudebot-2"
+ip_address       = "dhcp"  # or "192.168.1.X/24"
+
+cpu_cores        = 2
+memory_mb        = 4096
+disk_storage     = "local-lvm"
+disk_size_gb     = 32
+
+# Find available templates: ssh root@192.168.1.145 "pveam list local"
+template_file_id = "local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst"
+
+ssh_public_key   = "ssh-ed25519 <your-public-key>"
