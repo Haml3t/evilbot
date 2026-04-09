@@ -15,6 +15,7 @@ This is **claudebot** — an unprivileged Debian 12 LXC container (vmid 300) run
 | evilbot | Proxmox host | 192.168.1.145 | `ssh root@192.168.1.145` ✅ | 22TB ZFS pool `tank` |
 | evilbot-nas | QEMU VM (vmid 100) | 192.168.1.67 | `ssh -J root@192.168.1.145 root@192.168.1.67` ✅ | Custom Linux NAS; /tank shared in via virtiofs |
 | evilbot-telegram | QEMU VM (vmid 200) | 192.168.1.239 | `ssh -J root@192.168.1.145 root@192.168.1.239` ✅ | Telegram bot + image gen (ComfyUI); has Docker; Ubuntu LVM root; no guest agent |
+| jellyfin | LXC (vmid 400) | 192.168.1.196 | `ssh -J root@192.168.1.145 root@192.168.1.196` ✅ | Jellyfin media server; /tank/media bind-mounted at /media |
 | claudebot | LXC (vmid 300) | 192.168.1.222 | this container | |
 
 To reach NAS or Telegram VMs: proxy through evilbot (`-J root@192.168.1.145`). Claudebot's pubkey is already in `authorized_keys` on both.
@@ -83,7 +84,7 @@ See `/root/.claude/plans/` for in-progress implementation plans.
 
 1. **IaC for Claude sandbox containers** — Terraform + Proxmox provider to clone and provision new claudebot-style LXC containers on evilbot — plan: `iac-lxc.md`
 2. **Documentation pass** ✅ — See `/root/docs/evilbot-nas.md` and `/root/docs/evilbot-telegram.md`
-3. **Jellyfin** — Stream from /tank/media; new LXC (vmid 400) with bind mount to /tank/media — plan: `jellyfin.md`
+3. **Jellyfin** ✅ — LXC vmid 400 at 192.168.1.196:8096; IaC in `vm-iac/jellyfin/`; docs in `docs/jellyfin.md`
 4. **Remote Claude access** ✅ — SSH via jump host works for all VMs; see topology table above
 5. **GitHub sync** — Sync this repo to GitHub; portfolio-safe publishing — plan: `github-sync.md`
 6. **Proxmox host safety** — SSH hardening, host config as Ansible IaC, backups, staged change workflow — plan: `proxmox-host-safety.md`
