@@ -1,0 +1,12 @@
+# Proxmox container firewall for claudebot (vmid 300)
+# Deploy to: /etc/pve/firewall/300.fw on evilbot
+# Apply with: pve-firewall restart
+
+[OPTIONS]
+enable: 1
+
+[RULES]
+# Allow outbound SSH only to the Proxmox jump host
+OUT ACCEPT -p tcp -dest 192.168.1.145 -dport 22 -log nolog
+# Block outbound SSH to everything else — claudebot should never SSH outside this boundary
+OUT DROP -p tcp -dport 22 -log warning
