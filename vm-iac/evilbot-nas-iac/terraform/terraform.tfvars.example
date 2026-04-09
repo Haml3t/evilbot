@@ -1,0 +1,24 @@
+# Copy this to terraform.tfvars and fill in real values.
+# terraform.tfvars is gitignored — never commit it.
+
+pm_api_url      = "https://192.168.1.145:8006/api2/json"
+pm_user         = "root@pam"
+pm_password     = "<proxmox-root-password>"
+pm_tls_insecure = true
+
+pm_node         = "evilbot"
+pm_pool         = null
+
+vmid            = 100
+vm_name         = "evilbot-nas"
+vm_cores        = 2
+vm_memory       = 8192
+vm_disk_size    = "64G"
+vm_storage      = "tank-vmdata"
+vm_bridge       = "vmbr0"
+
+iso_storage     = "<storage-name>"
+iso_file        = "ubuntu-24.04.2-live-server-amd64.iso"
+
+ci_user         = "<your-username>"
+david_ssh_pubkey = "ssh-ed25519 <your-public-key>"
