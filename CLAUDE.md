@@ -83,7 +83,7 @@ See `/root/.claude/plans/` for in-progress implementation plans.
 
 1. **IaC for Claude sandbox containers** — Terraform + Proxmox provider to clone and provision new claudebot-style LXC containers on evilbot — plan: `iac-lxc.md`
 2. **Documentation pass** ✅ — See `/root/docs/evilbot-nas.md` and `/root/docs/evilbot-telegram.md`
-3. **Jellyfin** — Stream from /tank/media; likely a new LXC on evilbot with bind mount to /tank/media
+3. **Jellyfin** — Stream from /tank/media; new LXC (vmid 400) with bind mount to /tank/media — plan: `jellyfin.md`
 4. **Remote Claude access** ✅ — SSH via jump host works for all VMs; see topology table above
 5. **GitHub sync** — Sync this repo to GitHub; portfolio-safe publishing — plan: `github-sync.md`
 6. **Proxmox host safety** — SSH hardening, host config as Ansible IaC, backups, staged change workflow — plan: `proxmox-host-safety.md`
