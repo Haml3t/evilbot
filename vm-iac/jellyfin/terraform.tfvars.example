@@ -1,0 +1,4 @@
+# Copy to terraform.tfvars — gitignored, never commit.
+
+proxmox_api_token = "terraform-lxc@pve!lxc=<token-secret>"
+ssh_public_key    = "ssh-ed25519 <your-public-key>"

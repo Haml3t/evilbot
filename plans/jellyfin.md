@@ -7,10 +7,10 @@ network and from Android.
 
 ## Status
 
-- [ ] Phase 1: Provision LXC via Terraform
-- [ ] Phase 2: Install & configure Jellyfin
-- [ ] Phase 3: Bind mount /tank/media
-- [ ] Phase 4: Connect Android client
+- [x] Phase 1: Provision LXC via Terraform
+- [x] Phase 2: Install & configure Jellyfin
+- [x] Phase 3: Bind mount /tank/media
+- [x] Phase 4: Connect Android client
 
 ---
 
