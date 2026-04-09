@@ -15,15 +15,26 @@
 
 ## Phase 1: Foundations
 
-### 1.1 Proxmox API tokens
-Create two tokens via web UI at https://192.168.1.145:8006 (Datacenter → Permissions → API Tokens):
+### 1.1 Proxmox API tokens ✅
 
-| Token ID | Permissions | Purpose |
-|---|---|---|
-| `terraform-ro@pam!read` | `VM.Audit`, `Datastore.Audit` on `/` | Inspection, planning, import |
-| `terraform-lxc@pam!lxc` | `VM.PowerMgmt`, `VM.Config.HWType`, `VM.Config.Options`, `VM.Config.Network`, `VM.Allocate`, `Datastore.AllocateSpace` scoped to pool `claudebots` (TBD) | Create/start/stop/delete LXC containers |
+Created via `pveum` (not web UI — user creation isn't exposed there for PVE realm):
 
-Token secrets are single-display — save them to `/root/.secrets/proxmox-tokens.env` (not committed anywhere).
+```bash
+pveum user add terraform-ro@pve
+pveum user add terraform-lxc@pve
+pveum acl modify / --user terraform-ro@pve --role PVEAuditor
+pveum acl modify / --user terraform-lxc@pve --role PVEAdmin
+pveum user token add terraform-ro@pve read --privsep 1
+pveum user token add terraform-lxc@pve lxc --privsep 0
+pveum acl modify /sdn/zones/localnetwork --tokens terraform-lxc@pve!lxc --role PVESDNUser
+```
+
+**Lesson learned:** `privsep=1` requires explicit token grants at every Proxmox path
+(`/`, `/nodes/`, `/storage/`, `/sdn/`, `/vms/<id>`). The `/vms/<id>` path is dynamic
+(doesn't exist before creation), making fine-grained privsep impractical for container
+provisioning. Use `privsep=0` and grant the **user** the appropriate roles instead.
+
+Token secrets saved to `/root/.secrets/proxmox-tokens.env` (gitignored).
 
 ### 1.2 Create a Proxmox pool
 In the web UI: Datacenter → Pools → Create pool `claudebots`.
