@@ -6,3 +6,7 @@
 
 # /etc/cron.d/pve-config-backup
 30 1 * * * root /usr/local/bin/pve-config-backup.sh >> /var/log/pve-config-backup.log 2>&1
+
+# /etc/cron.d/restic-offsite
+# Runs after vzdump (02:00) and pve-config-backup (01:30) complete
+0 4 * * * root /usr/local/bin/restic-offsite-backup.sh >> /var/log/restic-offsite.log 2>&1
