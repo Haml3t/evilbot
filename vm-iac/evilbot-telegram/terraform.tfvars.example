@@ -2,9 +2,3 @@
 
 proxmox_api_token = "terraform-lxc@pve!lxc=<token-secret>"
 ssh_public_key    = "ssh-ed25519 <your-public-key>"
-
-# Defaults match the live VM (vmid 100); override only if reprovisioning differently
-vm_cores   = 2
-vm_memory  = 8192
-vm_storage = "tank-vmdata"
-ci_user    = "david"

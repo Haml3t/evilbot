@@ -9,7 +9,7 @@ Related plans: `proxmox-host-safety.md` (backup strategy), `iac-lxc.md` (Terrafo
 
 ## Status
 
-- [ ] Phase 1: IaC completeness audit
+- [x] Phase 1: IaC completeness audit
 - [ ] Phase 2: Backup strategy & scheduling
 - [ ] Phase 3: Automated restore verification
 - [ ] Phase 4: Service functional test suite
@@ -24,21 +24,16 @@ from code alone?"*
 
 | System | IaC exists | Post-provision scripted | Secrets documented | Verdict |
 |---|---|---|---|---|
-| claudebot (vmid 300) | ✅ `vm-iac/claudebot-lxc/` | ❌ manual | ✅ | Partial — needs provision script |
+| claudebot (vmid 300) | ✅ `vm-iac/claudebot-lxc/` | ✅ `provision.sh` | ✅ | ✅ Complete |
 | jellyfin (vmid 400) | ✅ `vm-iac/jellyfin/` | ✅ `provision.sh` | ✅ | ✅ Complete |
-| evilbot-nas (vmid 100) | ⚠️ `vm-iac/evilbot-nas-iac/` (old Telmate provider, incomplete) | ❌ | ⚠️ | Incomplete |
-| evilbot-telegram (vmid 200) | ❌ | ❌ | ⚠️ | Not covered |
+| evilbot-nas (vmid 100) | ✅ `vm-iac/evilbot-nas-iac/` (migrated to bpg/proxmox + token) | ✅ `provision.sh` | ✅ | ✅ Complete |
+| evilbot-telegram (vmid 200) | ✅ `vm-iac/evilbot-telegram/` | ✅ `provision.sh` | ✅ | ✅ Complete |
 | evilbot (Proxmox host) | ❌ | ❌ | — | Not covered (see proxmox-host-safety.md) |
 
-### Gaps to close
+### Remaining gap
 
-1. **claudebot provision script** — mirror `vm-iac/jellyfin/provision.sh`; install Node 22,
-   Python 3, Claude Code CLI, git
-2. **evilbot-nas IaC** — migrate from `Telmate/proxmox` + password to `bpg/proxmox` + token;
-   add Ansible playbook to install Transmission, Samba, watch script
-3. **evilbot-telegram IaC** — Terraform + provision script; install Python venv, evilbot.py,
-   systemd service; `.env` secrets stored in ansible-vault or documented placeholder
-4. **Proxmox host** — see `proxmox-host-safety.md` Phase 2 (Ansible)
+**Proxmox host** — see `proxmox-host-safety.md` Phase 2 (Ansible). All guest VMs/LXCs
+are now covered.
 
 ---
 
