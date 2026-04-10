@@ -1,0 +1,17 @@
+# Proxmox backup job definition — lives in /etc/pve/jobs.cfg on evilbot
+# Created via: pvesh create /cluster/backup --id nightly-guests ...
+# To recreate manually, paste into /etc/pve/jobs.cfg or run:
+#   pvesh create /cluster/backup --id nightly-guests --compress zstd \
+#     --storage tank-backups --schedule '02:00' --mode snapshot \
+#     --vmid 100,200,300,400 --mailnotification failure \
+#     --prune-backups 'keep-daily=7,keep-weekly=4,keep-monthly=3'
+
+vzdump: nightly-guests
+	schedule 02:00
+	compress zstd
+	enabled 1
+	mailnotification failure
+	mode snapshot
+	prune-backups keep-daily=7,keep-monthly=3,keep-weekly=4
+	storage tank-backups
+	vmid 100,200,300,400

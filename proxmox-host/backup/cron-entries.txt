@@ -1,0 +1,8 @@
+# Cron entries for evilbot backup jobs
+# Deploy to /etc/cron.d/ on evilbot
+
+# /etc/cron.d/zfs-daily-snapshot
+0 1 * * * root /usr/local/bin/zfs-snapshot-daily.sh >> /var/log/zfs-snapshots.log 2>&1
+
+# /etc/cron.d/pve-config-backup
+30 1 * * * root /usr/local/bin/pve-config-backup.sh >> /var/log/pve-config-backup.log 2>&1

@@ -10,7 +10,7 @@ Related plans: `proxmox-host-safety.md` (backup strategy), `iac-lxc.md` (Terrafo
 ## Status
 
 - [x] Phase 1: IaC completeness audit
-- [ ] Phase 2: Backup strategy & scheduling
+- [x] Phase 2: Backup strategy & scheduling
 - [ ] Phase 3: Automated restore verification
 - [ ] Phase 4: Service functional test suite
 - [ ] Phase 5: CI/CD — run tests on every push
