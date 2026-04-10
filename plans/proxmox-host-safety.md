@@ -10,8 +10,8 @@ changes to the *host itself*.
 
 ## Status
 
-- [ ] Phase 1: SSH hardening — restrict claudebot's outbound access
-- [ ] Phase 2: Proxmox host config as code (Ansible)
+- [x] Phase 1: SSH hardening — restrict claudebot's outbound access
+- [ ] Phase 2: Proxmox host config as code (Ansible) ← **next priority**
 - [ ] Phase 3: Host backup strategy
 - [ ] Phase 4: Staging / change validation workflow
 

@@ -28,12 +28,13 @@ from code alone?"*
 | jellyfin (vmid 400) | ✅ `vm-iac/jellyfin/` | ✅ `provision.sh` | ✅ | ✅ Complete |
 | evilbot-nas (vmid 100) | ✅ `vm-iac/evilbot-nas-iac/` (migrated to bpg/proxmox + token) | ✅ `provision.sh` | ✅ | ✅ Complete |
 | evilbot-telegram (vmid 200) | ✅ `vm-iac/evilbot-telegram/` | ✅ `provision.sh` | ✅ | ✅ Complete |
-| evilbot (Proxmox host) | ❌ | ❌ | — | Not covered (see proxmox-host-safety.md) |
+| evilbot (Proxmox host) | ⏳ | ⏳ | — | In progress — see `proxmox-host-safety.md` Phase 2 (Ansible) |
 
 ### Remaining gap
 
-**Proxmox host** — see `proxmox-host-safety.md` Phase 2 (Ansible). All guest VMs/LXCs
-are now covered.
+**Proxmox host IaC** — Ansible playbook to codify network config, storage definitions,
+firewall rules, user/token setup, and installed packages. This is the last system without
+reproducible provisioning. Tracked in `proxmox-host-safety.md` Phase 2.
 
 ---
 
