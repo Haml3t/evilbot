@@ -212,6 +212,7 @@ async def pick_node(model_info: dict, service: str) -> str:
             except Exception as exc:
                 log.warning("pass2 ComfyUI free failed on %s: %s", node_name, exc)
 
+        await asyncio.sleep(2)  # let the driver actually release VRAM before re-checking
         new_free = await _vram_free(node)
         if new_free >= needed_mb:
             log.info("routing %s → %s (pass2 after unload, vram_free=%d MB)",
