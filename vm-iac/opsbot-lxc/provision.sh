@@ -125,13 +125,7 @@ echo "==> Registering runner with GitHub..."
 ssh -J "$JUMP" "root@$CONTAINER_IP" bash << REMOTE
 set -euo pipefail
 cd /home/runner
-sudo -u runner ./config.sh \
-  --url "$REPO_URL" \
-  --token "$RUNNER_TOKEN" \
-  --name "opsbot" \
-  --labels "opsbot,self-hosted,Linux,X64" \
-  --work "_work" \
-  --unattended
+su -s /bin/bash runner -c "./config.sh --url $REPO_URL --token $RUNNER_TOKEN --name opsbot --labels opsbot,self-hosted,Linux,X64 --work _work --unattended"
 REMOTE
 
 echo "==> Installing runner as systemd service..."
