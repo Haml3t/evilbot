@@ -1,0 +1,27 @@
+# systemd unit for the VRAM reporter
+# Install to: /etc/systemd/system/vram-reporter.service
+# Enable:     systemctl enable --now vram-reporter
+
+[Unit]
+Description=VRAM reporter for inference proxy
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/vram-reporter/reporter.py
+Restart=always
+RestartSec=5
+
+# Run as an unprivileged user — nvidia-smi only needs read access to /dev/nvidia*
+User=vram-reporter
+Group=video
+
+# Harden the service: no filesystem writes, no privilege escalation
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadOnlyPaths=/
+
+[Install]
+WantedBy=multi-user.target

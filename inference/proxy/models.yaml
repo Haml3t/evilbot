@@ -1,0 +1,64 @@
+# Model catalog — defines VRAM requirements and which nodes can serve each model.
+# The proxy reads this at startup; edit and restart the proxy to add/remove models.
+#
+# vram_mb: minimum VRAM required in MB
+# nodes: ordered list of preferred nodes (first = primary, second = fallback)
+# type: "imagegen" or "llm"
+# backend_model: name passed to the backend service (Ollama model tag, ComfyUI checkpoint filename)
+
+imagegen:
+  sd-1.5:
+    vram_mb: 4000
+    nodes: [evilbot, gpu-desktop]
+    backend_model: "v1-5-pruned-emaonly-fp16.safetensors"
+
+  sdxl-base:
+    vram_mb: 7000
+    nodes: [evilbot, gpu-desktop]
+    backend_model: "sd_xl_base_1.0.safetensors"
+
+  sdxl-refiner:
+    vram_mb: 14000
+    nodes: [gpu-desktop]
+    backend_model: "sd_xl_refiner_1.0.safetensors"
+
+  flux-schnell:
+    vram_mb: 12000
+    nodes: [gpu-desktop]
+    backend_model: "flux1-schnell.safetensors"
+
+  flux-dev:
+    vram_mb: 20000
+    nodes: [gpu-desktop]
+    backend_model: "flux1-dev.safetensors"
+
+llm:
+  llama-3-8b:
+    vram_mb: 5500
+    nodes: [evilbot, gpu-desktop]
+    backend_model: "llama3:8b-instruct-q4_0"
+
+  mistral-7b:
+    vram_mb: 5000
+    nodes: [evilbot, gpu-desktop]
+    backend_model: "mistral:7b-instruct-q4_0"
+
+  mistral-34b:
+    vram_mb: 19000
+    nodes: [gpu-desktop]
+    backend_model: "mistral:34b-instruct-q4_0"
+
+nodes:
+  evilbot:
+    image_api_url: "http://192.168.1.145:5005"   # image-api wrapper — what the Telegram bot talks to
+    imagegen_url: "http://192.168.1.145:8288"     # ComfyUI native API — evilbot maps container :8188 → host :8288
+    llm_url: "http://192.168.1.145:11434"
+    vram_reporter_url: "http://192.168.1.145:9835"
+    vram_mb: 8192
+
+  gpu-desktop:
+    image_api_url: "http://192.168.1.12:5005"
+    imagegen_url: "http://192.168.1.12:8188"
+    llm_url: "http://192.168.1.12:11434"
+    vram_reporter_url: "http://192.168.1.12:9835"
+    vram_mb: 24576

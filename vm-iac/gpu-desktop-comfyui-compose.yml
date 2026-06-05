@@ -1,0 +1,42 @@
+version: "2.4"
+
+services:
+  comfyui:
+    image: yanwk/comfyui-boot:cu124-slim
+    container_name: comfyui-gpu-desktop
+    ports:
+      - "8188:8188"
+    volumes:
+      - ${HOME}/ai/comfyui-data:/root
+    environment:
+      - CLI_ARGS=--disable-cuda-malloc
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  image-api:
+    image: python:3.11-slim
+    container_name: image-api-gpu-desktop
+    working_dir: /app
+    volumes:
+      - ${HOME}/ai/image-api:/app
+      - ${HOME}/ai/comfyui-data/workflows:/workflows:ro
+      - ${HOME}/ai/comfyui-data/ComfyUI/output:/output
+    environment:
+      - FALLBACK_COMFYUI_URL=http://comfyui:8188
+      - WORKFLOW_PATH=/workflows/starter_t2i.json
+      - OUTPUT_DIR=/output
+      - POLL_TIMEOUT=180
+    ports:
+      - "5005:5005"
+    depends_on:
+      - comfyui
+    command: >
+      sh -lc "pip install --no-cache-dir fastapi uvicorn requests &&
+              uvicorn main:app --host 0.0.0.0 --port 5005"
+    restart: unless-stopped

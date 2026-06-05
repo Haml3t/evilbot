@@ -1,0 +1,32 @@
+# Deploys the inference routing proxy on inferbot.
+# The proxy has no GPU access and no elevated privileges.
+#
+# Usage on inferbot:
+#   docker compose up -d
+#   docker compose logs -f
+
+services:
+  proxy:
+    build: .
+    container_name: inference-proxy
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount models.yaml so you can edit routing config without rebuilding
+      - ./models.yaml:/app/models.yaml:ro
+    environment:
+      - MODELS_FILE=/app/models.yaml
+      - BACKEND_TIMEOUT=300
+      - VRAM_SAFETY_MARGIN_MB=512   # extra MB buffer beyond model requirement
+    # No GPU, no privileged, no host mounts beyond config
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
