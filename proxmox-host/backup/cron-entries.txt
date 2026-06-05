@@ -1,12 +1,22 @@
-# Cron entries for evilbot backup jobs
-# Deploy to /etc/cron.d/ on evilbot
+# Cron entries for evilbot host backup jobs — deploy each block to /etc/cron.d/ on evilbot.
+# Schedule is staggered to avoid I/O contention:
+#   01:00 zfs snapshots | 01:30 config | 02:00 vzdump guests | Sun 03:30 system | 04:00 cloud | 04:30 off-host
 
 # /etc/cron.d/zfs-daily-snapshot
 0 1 * * * root /usr/local/bin/zfs-snapshot-daily.sh >> /var/log/zfs-snapshots.log 2>&1
 
-# /etc/cron.d/pve-config-backup
+# /etc/cron.d/pve-config-backup          — Tier A: daily host config tarball
 30 1 * * * root /usr/local/bin/pve-config-backup.sh >> /var/log/pve-config-backup.log 2>&1
 
-# /etc/cron.d/restic-offsite
-# Runs after vzdump (02:00) and pve-config-backup (01:30) complete
+# /etc/cron.d/pve-system-backup          — Tier B1: weekly OS-core system tar (Sunday 03:30)
+30 3 * * 0 root /usr/local/bin/pve-system-backup.sh >> /var/log/pve-system-backup.log 2>&1
+
+# /etc/cron.d/restic-offsite             — encrypted cloud copy to Backblaze B2 (after the above)
 0 4 * * * root /usr/local/bin/restic-offsite-backup.sh >> /var/log/restic-offsite.log 2>&1
+
+# /etc/cron.d/host-offsite-sync          — off-host copy to a separate machine on the LAN
+30 4 * * * root /usr/local/bin/host-offsite-sync.sh >> /var/log/host-offsite-sync.log 2>&1
+
+# REMOVED: the old root-crontab job `0 3 * * * /usr/local/bin/backup-proxmox-config.sh`
+#          (wrote uncompressed dumps to /mnt/tank — a dir on the ROOT disk, not the pool).
+#          Superseded by pve-config-backup.sh above.
