@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+#
+# pre-commit guardrail for this PUBLIC repo.
+#
+# Blocks commits that would leak secrets, private keys, API tokens, password
+# assignments, staged *.tfvars/*.tfstate/.env content, or any term in the LOCAL
+# (gitignored) denylist of personal/employer/tailnet names.
+#
+# This script is PUBLIC. It contains NO sensitive values: the structural secret
+# patterns below are generic and safe to publish, and all sensitive terms are
+# read at runtime from a gitignored denylist file (.safety-denylist).
+#
+# Install:   git config core.hooksPath .githooks
+# Bypass:    git commit --no-verify   (use only when you are CERTAIN it is safe)
+#
+set -u
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+  echo "pre-commit: not in a git repo; skipping." >&2
+  exit 0
+}
+cd "$REPO_ROOT" || exit 0
+
+DENYLIST="$REPO_ROOT/.safety-denylist"
+
+# ---------------------------------------------------------------------------
+# Structural secret patterns — generic, safe to hardcode in a public file.
+# Format: "Label|||extended-regex" (matched case-insensitively).
+#
+# These target REAL assigned secret VALUES, not variable references or
+# placeholders, so the hook stays usable on IaC + *.example templates. A bare
+# "token = var.foo" / "password = <token>" / 'secret = "${SECRET}"' /
+# "...=changeme" is intentionally NOT flagged. SECRET_VAL is the
+# "looks like an actual secret literal" sub-pattern; PLACEHOLDER_RE marks a
+# value as harmless.
+# ---------------------------------------------------------------------------
+SECRET_VAL='[A-Za-z0-9/+_.-]{12,}'
+# The trailing alternative matches a Proxmox token IDENTIFIER
+# (user@realm!tokenid) only when NOT followed by "=<secret>" — the bare,
+# non-secret id used in comments/docs. A real "!tokenid=<uuid>" stays flagged.
+PLACEHOLDER_RE='<[^>]*>|\$\{|\bvar\.|example|changeme|change-me|placeholder|your-|redacted|xxxx|notarealsecret|fake|dummy|token-from|token-secret|secret-here|choose-a|passphrase-here|os\.environ|getenv|process\.env|environ\.get|System\.getenv|@[a-z0-9_.-]+![a-z0-9_-]+($|[^=a-z0-9_-])'
+
+STRUCTURAL_PATTERNS=(
+  "Private key header|||-----BEGIN ([A-Z0-9 ]+ )?PRIVATE KEY-----"
+  "AWS access key id|||AKIA[0-9A-Z]{16}"
+  "Hardcoded password value|||password[[:space:]]*[:=][[:space:]]*[\"']?${SECRET_VAL}"
+  "Hardcoded token value|||(api[_-]?)?token[[:space:]]*[:=][[:space:]]*[\"']?${SECRET_VAL}"
+  "Hardcoded secret value|||(api[_-]?)?secret[[:space:]]*[:=][[:space:]]*[\"']?${SECRET_VAL}"
+  "Hardcoded api key value|||api[_-]?key[[:space:]]*[:=][[:space:]]*[\"']?${SECRET_VAL}"
+)
+
+# Secret-bearing filenames whose CONTENT must never be committed (allow *.example).
+SECRET_FILE_REGEX='(^|/)[^/]*\.(tfvars|tfstate)([.][^/]*)?$|(^|/)[^/]*\.env$|(^|/)devbox-secrets\.env$'
+# Template files are allowed: *.example/*.sample/*.template/*.dist and any
+# basename signalling a template (e.g. example.env).
+SAFE_FILE_REGEX='(\.(example|sample|template|dist)([.][^/]*)?$)|(^|/)[^/]*example[^/]*$|(^|/)[^/]*sample[^/]*$|(^|/)[^/]*template[^/]*$'
+
+# ---------------------------------------------------------------------------
+# Load gitignored sensitive denylist (one case-insensitive regex per line).
+# ---------------------------------------------------------------------------
+DENY_PATTERNS=()
+if [ -f "$DENYLIST" ]; then
+  while IFS= read -r line; do
+    case "$line" in
+      ''|'#'*) continue ;;
+    esac
+    DENY_PATTERNS+=("$line")
+  done < "$DENYLIST"
+else
+  echo "pre-commit: WARNING: $DENYLIST not found — sensitive-term checks are"
+  echo "pre-commit:          DISABLED. Copy .safety-denylist.example to"
+  echo "pre-commit:          .safety-denylist and fill in your terms."
+fi
+
+HITS=0
+
+report() {
+  local file="$1" lineno="$2" label="$3" snippet="$4"
+  snippet="$(printf '%s' "$snippet" | tr -d '\r' | sed 's/^[[:space:]]*//')"
+  if [ "${#snippet}" -gt 80 ]; then snippet="${snippet:0:80}..."; fi
+  printf 'BLOCK  %s:%s  [%s]  %s\n' "$file" "$lineno" "$label" "$snippet"
+  HITS=$((HITS + 1))
+}
+
+# Files staged for this commit (added/copied/modified/renamed).
+FILES=()
+while IFS= read -r f; do
+  [ -n "$f" ] && FILES+=("$f")
+done < <(git diff --cached --name-only --diff-filter=ACMR)
+
+for file in "${FILES[@]}"; do
+  # 1) Forbidden secret-bearing filename.
+  if printf '%s' "$file" | grep -Eiq "$SECRET_FILE_REGEX"; then
+    if ! printf '%s' "$file" | grep -Eiq "$SAFE_FILE_REGEX"; then
+      report "$file" 0 "secret file staged" "$file (tfvars/tfstate/.env content must never be committed)"
+    fi
+  fi
+
+  # Scan the STAGED blob content (what will actually be committed).
+  content="$(git show ":$file" 2>/dev/null)"
+  [ -z "$content" ] && continue
+  printf '%s' "$content" | grep -Iq . 2>/dev/null || continue  # skip binary
+
+  for entry in "${STRUCTURAL_PATTERNS[@]}"; do
+    label="${entry%%|||*}"; regex="${entry##*|||}"
+    while IFS= read -r match; do
+      text="${match#*:}"
+      case "$label" in
+        *value*)
+          printf '%s' "$text" | grep -Eiq -e "$PLACEHOLDER_RE" && continue
+          ;;
+      esac
+      report "$file" "${match%%:*}" "$label" "$text"
+    done < <(printf '%s\n' "$content" | grep -nEi -e "$regex")
+  done
+
+  for regex in "${DENY_PATTERNS[@]}"; do
+    while IFS= read -r match; do
+      report "$file" "${match%%:*}" "sensitive term" "${match#*:}"
+    done < <(printf '%s\n' "$content" | grep -nEi -e "$regex")
+  done
+done
+
+if [ "$HITS" -gt 0 ]; then
+  echo "----------------------------------------------------------------------"
+  echo "pre-commit BLOCKED this commit: $HITS potential leak(s) found above."
+  echo
+  echo "Fix it by one of:"
+  echo "  - Remove the secret / sensitive term from the staged change."
+  echo "  - Move secrets into a gitignored file (e.g. *.tfvars, .env,"
+  echo "    .safety-denylist) and commit only a sanitized *.example template."
+  echo
+  echo "If — and only if — you are CERTAIN these are false positives, bypass"
+  echo "this hook with:  git commit --no-verify"
+  echo "----------------------------------------------------------------------"
+  exit 1
+fi
+
+exit 0

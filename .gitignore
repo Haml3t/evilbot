@@ -40,6 +40,12 @@ env/
 # Ansible backups/artifacts
 ansible/backups/
 
+# Local security denylist consumed by the publishing-checklist scan commands.
+# Holds the real sensitive terms (employer name, personal names, tailnet name,
+# etc.) so they are NEVER committed. Only the *.example template is public.
+.safety-denylist
+!.safety-denylist.example
+
 # Editor/OS noise
 .DS_Store
 *.swp

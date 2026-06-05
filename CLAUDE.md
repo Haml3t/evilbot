@@ -14,7 +14,7 @@ This is **claudebot** — an unprivileged Debian 12 LXC container (vmid 300) run
 |---|---|---|---|---|
 | evilbot | Proxmox host | 192.168.1.145 | `ssh root@192.168.1.145` ✅ | 22TB ZFS pool `tank` |
 | evilbot-nas | QEMU VM (vmid 100) | 192.168.1.67 | `ssh -J root@192.168.1.145 root@192.168.1.67` ✅ | Custom Linux NAS; /tank shared in via virtiofs |
-| evilbot-telegram | QEMU VM (vmid 200) | 192.168.1.239 | `ssh -J root@192.168.1.145 root@192.168.1.239` ✅ | Telegram bot + image gen (ComfyUI); has Docker; Ubuntu LVM root; no guest agent |
+| evilbot-telegram | QEMU VM (vmid 200) | 192.168.1.238 | `ssh -J root@192.168.1.145 root@192.168.1.238` ✅ | Telegram bot (no GPU); calls IMAGEGEN_URL; Ubuntu; no guest agent — IP via DHCP, was .239 |
 | jellyfin | LXC (vmid 400) | 192.168.1.196 | `ssh -J root@192.168.1.145 root@192.168.1.196` ✅ | Jellyfin media server; /tank/media bind-mounted at /media |
 | claudebot | LXC (vmid 300) | 192.168.1.222 | this container | |
 
@@ -57,16 +57,30 @@ Not installed yet: Terraform, Tailscale, docker, ansible
 
 ## Security & Secret Hygiene
 
-This repo is intended to be **public on GitHub**. Before committing anything, apply these rules:
+This repo is **public on GitHub**. Full policy: [`SECURITY.md`](SECURITY.md).
+Pre-commit/pre-push scans and the "secret already committed" runbook:
+[`docs/publishing-checklist.md`](docs/publishing-checklist.md). Before
+committing anything, apply these rules.
 
 **Never commit:**
 - Passwords or API secrets of any kind
-- `*.env` files, `*.tfvars`, `terraform.tfstate`
-- Tailscale auth keys or node-specific Tailscale IPs (use `<tailscale-ip>` as placeholder)
+- `**/*.tfvars` and `**/*.tfstate*` (state + backups) — extension globs, not
+  exact names. The old exact-name patterns missed `jellyfin.tfvars` (live
+  Proxmox API token) and `terraform-301.tfstate` (passwords). Only
+  `**/*.tfvars.example` / `**/*.tfstate.example` are allowed through.
+- Any `**/.env` file (e.g. `devbox-secrets.env`, `restic-b2.env`)
+- Devbox private-context files: `**/devbox/CLAUDE.md.template` and
+  `**/devbox/repos.txt` (employer-internal architecture + private work-repo
+  names). Only their `*.example` versions are public.
+- Tailscale auth keys / the real tailnet name (use `<tailnet>` / `<tailscale-ip>`)
 - Ansible vault secrets (commit only the encrypted vault file, never plaintext)
 - The Telegram bot token (`TELEGRAM_BOT_TOKEN` lives on the VM in `/opt/evilbot/.env`)
 - Transmission RPC password (`/etc/transmission-remote.env` on the NAS)
 - Proxmox API token secrets (use `*.tfvars.example` with placeholders instead)
+- Real personal identities (names, personal folder names, personal/employer
+  commit-author emails) or any employer-internal content
+- `.safety-denylist` — the local file holding the real sensitive terms the scan
+  commands grep for (only `.safety-denylist.example` is public)
 
 **Safe to commit as-is:**
 - LAN IPs (`192.168.1.x`) — RFC1918, not routable from the internet
@@ -76,7 +90,7 @@ This repo is intended to be **public on GitHub**. Before committing anything, ap
 
 **For every secret-bearing config file, commit a sanitized `*.example` alongside it.**
 
-See `/root/.claude/plans/github-sync.md` for full publishing checklist.
+See `/root/.claude/plans/github-sync.md` for the project-internal publishing plan.
 
 ## Active Projects
 

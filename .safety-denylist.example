@@ -1,0 +1,36 @@
+# Safety denylist — TEMPLATE (this .example file is PUBLIC)
+#
+# Copy this file to `.safety-denylist` (which is gitignored) and fill in the
+# REAL sensitive terms. The publishing checklist scan commands read the real
+# `.safety-denylist`, never this template, so the actual values never land in
+# git history.
+#
+# Format: one term per line. Blank lines and lines starting with `#` are
+# ignored. Terms are matched case-insensitively as fixed strings (grep -F -i).
+# Keep terms specific enough to avoid false positives but broad enough to catch
+# variants (e.g. include a name both with and without spacing if relevant).
+#
+# Put the real values in .safety-denylist locally. Examples of what belongs:
+
+# --- Employer / work identity ---
+ExampleCorp
+example-corp-internal
+acme-platform-team
+
+# --- Real personal identities ---
+Firstname
+Lastname
+Firstname Lastname
+personal-folder-name
+
+# --- Network / infrastructure identifiers ---
+your-tailnet-name.ts.net
+your-tailnet-name
+
+# --- Private repo names that must not appear publicly ---
+private-work-repo-a
+private-work-repo-b
+
+# --- Personal / employer email addresses ---
+you@example.com
+you@employer.example
