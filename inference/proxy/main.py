@@ -176,6 +176,17 @@ async def pick_node(model_info: dict, service: str) -> str:
 # Job execution helpers
 # ---------------------------------------------------------------------------
 
+async def _free_comfyui_vram(node_name: str) -> None:
+    """Tell ComfyUI to unload its checkpoint after generation so VRAM is available for LLM jobs."""
+    url = NODES[node_name]["imagegen_url"]
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(f"{url}/free", json={"unload_models": True, "free_memory": True})
+        log.info("freed ComfyUI VRAM on %s", node_name)
+    except Exception as exc:
+        log.warning("could not free ComfyUI VRAM on %s: %s", node_name, exc)
+
+
 async def _run_imagegen(node_name: str, payload: dict) -> dict:
     api_url = NODES[node_name]["image_api_url"]
     async with httpx.AsyncClient(timeout=BACKEND_TIMEOUT) as client:
@@ -225,6 +236,7 @@ async def _process_job(job: Job) -> None:
     try:
         if job.service == "imagegen":
             job.result = await _run_imagegen(node_name, job.payload)
+            asyncio.create_task(_free_comfyui_vram(node_name))
         else:
             job.result = await _run_llm(node_name, job.model_info, job.payload)
         job.status = JobStatus.DONE
@@ -298,6 +310,7 @@ async def _enqueue_or_run_imagegen(model_name: str, payload: dict) -> tuple[dict
     try:
         node_name = await pick_node(model_info, "imagegen")
         result = await _run_imagegen(node_name, payload)
+        asyncio.create_task(_free_comfyui_vram(node_name))
         return result, None
     except HTTPException as exc:
         if exc.status_code != 503:
