@@ -211,6 +211,8 @@ async def pick_node(model_info: dict, service: str) -> str:
                 log.info("pass2 freed ComfyUI on %s", node_name)
             except Exception as exc:
                 log.warning("pass2 ComfyUI free failed on %s: %s", node_name, exc)
+            # Ollama may also be holding VRAM on this node — unload it too
+            await _unload_ollama(node_name, node)
 
         await asyncio.sleep(2)  # let the driver actually release VRAM before re-checking
         new_free = await _vram_free(node)
@@ -337,6 +339,44 @@ async def _cleanup_worker() -> None:
             log.info("cleaned up %d stale jobs", len(stale))
 
 
+async def _vram_waker() -> None:
+    """
+    When jobs are queued and waiting for VRAM, proactively unload idle models
+    on every eligible node so the per-job retry loop can succeed on its next
+    attempt. Runs independently of the job retry loop — handles cross-service
+    blocking (e.g. an idle LLM model occupying VRAM needed by a queued imagegen).
+    """
+    while True:
+        await asyncio.sleep(QUEUE_POLL_INTERVAL)
+
+        blocked = [j for j in job_results.values() if j.status == JobStatus.QUEUED]
+        if not blocked:
+            continue
+
+        log.info("waker: %d queued job(s), scanning nodes for idle GPU memory", len(blocked))
+
+        for node_name, node in NODES.items():
+            # Never disturb a node that is actively serving a request
+            if node_name in _active_llm_nodes or node_name in _active_imagegen_nodes:
+                continue
+
+            # Unload idle Ollama models
+            loaded_mb = await _ollama_loaded_vram_mb(node)
+            if loaded_mb > 0:
+                log.info("waker: unloading idle Ollama on %s (%d MB held)", node_name, loaded_mb)
+                await _unload_ollama(node_name, node)
+
+            # Free idle ComfyUI checkpoint
+            if await _comfyui_queue_depth(node) == 0:
+                try:
+                    async with httpx.AsyncClient(timeout=5.0) as client:
+                        await client.post(f"{node['imagegen_url']}/free",
+                                          json={"unload_models": True, "free_memory": True})
+                    log.info("waker: freed ComfyUI VRAM on %s", node_name)
+                except Exception as exc:
+                    log.warning("waker: ComfyUI free failed on %s: %s", node_name, exc)
+
+
 # ---------------------------------------------------------------------------
 # App lifecycle
 # ---------------------------------------------------------------------------
@@ -347,6 +387,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_queue_worker("imagegen"), name="worker-imagegen"),
         asyncio.create_task(_queue_worker("llm"),      name="worker-llm"),
         asyncio.create_task(_cleanup_worker(),         name="worker-cleanup"),
+        asyncio.create_task(_vram_waker(),             name="worker-vram-waker"),
     ]
     log.info("background workers started")
     yield
