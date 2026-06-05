@@ -1,0 +1,24 @@
+[Unit]
+Description=Inference routing proxy
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/inference-proxy
+Environment=MODELS_FILE=/opt/inference-proxy/models.yaml
+Environment=VRAM_SAFETY_MARGIN_MB=512
+Environment=BACKEND_TIMEOUT=300
+Environment=QUEUE_POLL_INTERVAL=15
+Environment=JOB_TTL=3600
+ExecStart=/opt/proxy-venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
+Restart=always
+RestartSec=5
+User=nobody
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/tmp
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars and fill in secrets before running.
+# terraform.tfvars is gitignored — never commit it.
+
+proxmox_api_token = "user@pam!token-id=SECRET"
+
+vm_id            = 500
+hostname         = "inferbot"
+ip_address       = "192.168.1.223/24"   # or "dhcp"
+cpu_cores        = 2
+memory_mb        = 2048
+disk_storage     = "local-lvm"
+disk_size_gb     = 16
+template_file_id = "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
+ssh_public_key   = "ssh-ed25519 AAAA... your-key-here"
