@@ -13,12 +13,23 @@ venv/
 env/
 **/env/
 
-# Terraform — use ** to catch nested paths (the old relative pattern caused the tfvars leak)
-**/terraform.tfvars
+# Terraform — match ALL tfvars/tfstate variants by extension, not just the
+# canonical filenames. The old exact-name patterns (terraform.tfvars /
+# terraform.tfstate) missed jellyfin.tfvars and terraform-301.tfstate, both of
+# which hold live secrets (API token, passwords). Keep *.example committed.
+**/*.tfvars
+!**/*.tfvars.example
 **/.terraform/
 **/.terraform.lock.hcl
-**/terraform.tfstate
-**/terraform.tfstate.backup
+**/*.tfstate
+**/*.tfstate.*
+!**/*.tfstate.example
+
+# Devbox secrets and private work context (leaks employer repo names + internal
+# architecture). Real files stay local; only the *.example templates are public.
+**/devbox-secrets.env
+**/devbox/repos.txt
+**/devbox/CLAUDE.md.template
 
 # Secrets & credentials
 **/.env

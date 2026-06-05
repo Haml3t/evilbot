@@ -1,0 +1,9 @@
+# Copy to repos.txt and fill in your real clone URLs.
+# repos.txt is gitignored (it lists private repo names) — never commit it.
+#
+# Work repos to clone into ~/work/ on every new devbox.
+# One SSH clone URL per line. Lines starting with # are ignored.
+
+git@github.com:work-org/backend.git
+git@github.com:work-org/frontend.git
+git@github.com:work-org/shared-libs.git

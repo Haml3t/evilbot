@@ -1,0 +1,40 @@
+# Claude Code — devbox
+
+This is a **disposable work devbox** — an LXC container on evilbot (Proxmox host at
+192.168.1.145). Destroy and re-provision freely; nothing here is permanent.
+
+Work repos live in `~/work/`. Each is an independent project; see per-repo notes below.
+
+> Copy this file to `CLAUDE.md.template` and fill in your own project details.
+> `CLAUDE.md.template` is gitignored — it documents private work repos and internal
+> architecture, so it must never be committed. Only this sanitized example is public.
+
+## Homelab Access
+
+| Host | IP | Access |
+|---|---|---|
+| evilbot (Proxmox) | 192.168.1.145 | `ssh root@192.168.1.145` |
+| claudebot (AI sandbox) | 192.168.1.222 | `ssh root@192.168.1.222` |
+
+GitHub SSH key is pre-installed at `~/.ssh/work_id_ed25519` and routed through
+`~/.ssh/config` — `git clone git@github.com:...` works out of the box.
+
+---
+
+## Stack Overview
+
+<!-- Describe the common patterns shared across your repos: languages, IaC tool,
+     deployment pipeline, testing conventions, config/secrets management. -->
+
+## Repos
+
+### ~/work/<repo-name>
+**<language / framework / key services>**
+
+<!-- One short paragraph: what the service does and any critical do-not-touch notes. -->
+
+```bash
+# setup / test commands for this repo
+```
+
+**Push/PR workflow:** <!-- fill in -->
