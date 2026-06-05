@@ -18,8 +18,8 @@ imagegen:
     backend_model: "sd_xl_base_1.0.safetensors"
 
   sdxl-refiner:
-    vram_mb: 14000
-    nodes: [gpu-desktop]
+    vram_mb: 7000
+    nodes: [evilbot, gpu-desktop]
     backend_model: "sd_xl_refiner_1.0.safetensors"
 
   flux-schnell:
