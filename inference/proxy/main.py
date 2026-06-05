@@ -84,6 +84,11 @@ job_results: dict[str, Job] = {}
 imagegen_queue: asyncio.Queue = asyncio.Queue()
 llm_queue: asyncio.Queue = asyncio.Queue()
 
+# Tracks nodes currently serving an in-flight request — used to distinguish
+# "model loaded but idle" (safe to unload) from "actively generating" (must not unload).
+_active_llm_nodes: set[str] = set()
+_active_imagegen_nodes: set[str] = set()
+
 
 # ---------------------------------------------------------------------------
 # VRAM + queue-depth probes
@@ -115,61 +120,112 @@ async def _comfyui_queue_depth(node: dict) -> int:
     return 999
 
 
-async def _ollama_active_count(node: dict) -> int:
+async def _ollama_loaded_vram_mb(node: dict) -> int:
+    """Total VRAM (MB) currently held by loaded Ollama models on this node."""
     try:
         async with httpx.AsyncClient(timeout=PROBE_TIMEOUT) as client:
             r = await client.get(f"{node['llm_url']}/api/ps")
         if r.is_success:
-            return len(r.json().get("models", []))
+            models = r.json().get("models", [])
+            return sum(m.get("size_vram", 0) for m in models) // (1024 * 1024)
     except Exception:
         pass
-    return 999
+    return 0
+
+
+async def _unload_ollama(node_name: str, node: dict) -> None:
+    """Unload all idle Ollama models on a node by setting keep_alive=0."""
+    try:
+        async with httpx.AsyncClient(timeout=PROBE_TIMEOUT) as client:
+            r = await client.get(f"{node['llm_url']}/api/ps")
+        if not r.is_success:
+            return
+        for m in r.json().get("models", []):
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                await client.post(f"{node['llm_url']}/api/generate",
+                                  json={"model": m["name"], "keep_alive": 0})
+        log.info("unloaded idle Ollama models on %s", node_name)
+    except Exception as exc:
+        log.warning("could not unload Ollama on %s: %s", node_name, exc)
 
 
 async def pick_node(model_info: dict, service: str) -> str:
     """
-    Return the best node for this request, or raise HTTPException(503) if none
-    currently has enough free VRAM.
+    Return the best node for this request, or raise HTTPException(503).
 
-    Selection criteria:
-      1. Free VRAM >= model requirement + safety margin  (hard filter)
-      2. Among viable nodes: lowest queue depth          (primary sort)
-      3. Most free VRAM                                  (tiebreaker)
+    Two-pass selection:
+      Pass 1 — nodes with enough free VRAM right now; prefer candidate order
+               (models.yaml lists preferred nodes first) over raw free VRAM,
+               so small models stay on evilbot and leave the large node for large-only workloads.
+      Pass 2 — nodes where unloading an idle model would free enough VRAM.
+               Only attempted if the node has no in-flight request.
     """
     candidates = model_info["nodes"]
     required_mb = model_info["vram_mb"]
     needed_mb = required_mb + VRAM_SAFETY_MARGIN_MB
 
-    vram_results, queue_results = await asyncio.gather(
-        asyncio.gather(*[_vram_free(NODES[n]) for n in candidates]),
-        asyncio.gather(*[
-            _comfyui_queue_depth(NODES[n]) if service == "imagegen"
-            else _ollama_active_count(NODES[n])
-            for n in candidates
-        ]),
-    )
+    vram_results = await asyncio.gather(*[_vram_free(NODES[n]) for n in candidates])
 
+    # Pass 1: immediate — enough free VRAM without unloading anything.
+    # Sort by (active?, candidate_order) — idle nodes first, then preferred node order.
     viable = []
-    for node_name, free_mb, queue_depth in zip(candidates, vram_results, queue_results):
-        if free_mb < needed_mb:
-            log.info("skip %s: %d MB free, need %d MB", node_name, free_mb, needed_mb)
+    need_unload = []
+    for idx, (node_name, free_mb) in enumerate(zip(candidates, vram_results)):
+        active = (node_name in _active_llm_nodes) if service == "llm" \
+                 else (node_name in _active_imagegen_nodes)
+        if free_mb >= needed_mb:
+            viable.append((int(active), idx, node_name))
         else:
-            viable.append((queue_depth, -free_mb, node_name))
+            need_unload.append((idx, node_name, free_mb, active))
+            log.info("pass1 skip %s: %d MB free, need %d MB", node_name, free_mb, needed_mb)
 
-    if not viable:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                f"Insufficient VRAM on all eligible nodes "
-                f"(need {required_mb} MB + {VRAM_SAFETY_MARGIN_MB} MB margin)."
-            ),
-        )
+    if viable:
+        viable.sort()
+        _, _, node_name = viable[0]
+        log.info("routing %s → %s (pass1, vram_free=%d MB)",
+                 service, node_name, dict(zip(candidates, vram_results))[node_name])
+        return node_name
 
-    viable.sort()
-    _, _, node_name = viable[0]
-    free_mb = -viable[0][1]
-    log.info("routing %s → %s (vram_free=%d MB, queue=%d)", service, node_name, free_mb, viable[0][0])
-    return node_name
+    # Pass 2: proactive unload — try freeing idle models to make room.
+    for idx, node_name, free_mb, active in sorted(need_unload, key=lambda x: x[0]):
+        if active:
+            log.info("pass2 skip %s: request in flight", node_name)
+            continue
+        node = NODES[node_name]
+        if service == "llm":
+            loaded_mb = await _ollama_loaded_vram_mb(node)
+            if free_mb + loaded_mb < needed_mb:
+                log.info("pass2 skip %s: even after unload %d+%d MB < %d MB",
+                         node_name, free_mb, loaded_mb, needed_mb)
+                continue
+            await _unload_ollama(node_name, node)
+        else:
+            comfy_depth = await _comfyui_queue_depth(node)
+            if comfy_depth > 0:
+                log.info("pass2 skip %s: ComfyUI queue depth %d", node_name, comfy_depth)
+                continue
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    await client.post(f"{node['imagegen_url']}/free",
+                                      json={"unload_models": True, "free_memory": True})
+                log.info("pass2 freed ComfyUI on %s", node_name)
+            except Exception as exc:
+                log.warning("pass2 ComfyUI free failed on %s: %s", node_name, exc)
+
+        new_free = await _vram_free(node)
+        if new_free >= needed_mb:
+            log.info("routing %s → %s (pass2 after unload, vram_free=%d MB)",
+                     service, node_name, new_free)
+            return node_name
+        log.info("pass2 %s: still only %d MB free after unload", node_name, new_free)
+
+    raise HTTPException(
+        status_code=503,
+        detail=(
+            f"Insufficient VRAM on all eligible nodes "
+            f"(need {required_mb} MB + {VRAM_SAFETY_MARGIN_MB} MB margin)."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -188,26 +244,34 @@ async def _free_comfyui_vram(node_name: str) -> None:
 
 
 async def _run_imagegen(node_name: str, payload: dict) -> dict:
-    api_url = NODES[node_name]["image_api_url"]
-    async with httpx.AsyncClient(timeout=BACKEND_TIMEOUT) as client:
-        resp = await client.post(f"{api_url}/image", json=payload)
-    if not resp.is_success:
-        raise HTTPException(status_code=502,
-                            detail=f"imagegen backend {node_name} returned {resp.status_code}: {resp.text[:300]}")
-    data = resp.json()
-    data["_node"] = node_name
-    return data
+    _active_imagegen_nodes.add(node_name)
+    try:
+        api_url = NODES[node_name]["image_api_url"]
+        async with httpx.AsyncClient(timeout=BACKEND_TIMEOUT) as client:
+            resp = await client.post(f"{api_url}/image", json=payload)
+        if not resp.is_success:
+            raise HTTPException(status_code=502,
+                                detail=f"imagegen backend {node_name} returned {resp.status_code}: {resp.text[:300]}")
+        data = resp.json()
+        data["_node"] = node_name
+        return data
+    finally:
+        _active_imagegen_nodes.discard(node_name)
 
 
 async def _run_llm(node_name: str, model_info: dict, body: dict) -> dict:
-    backend_url = NODES[node_name]["llm_url"]
-    forwarded = {**body, "model": model_info["backend_model"], "stream": False}
-    async with httpx.AsyncClient(timeout=BACKEND_TIMEOUT) as client:
-        resp = await client.post(f"{backend_url}/v1/chat/completions", json=forwarded)
-    if not resp.is_success:
-        raise HTTPException(status_code=502,
-                            detail=f"LLM backend {node_name} returned {resp.status_code}: {resp.text[:300]}")
-    return resp.json()
+    _active_llm_nodes.add(node_name)
+    try:
+        backend_url = NODES[node_name]["llm_url"]
+        forwarded = {**body, "model": model_info["backend_model"], "stream": False}
+        async with httpx.AsyncClient(timeout=BACKEND_TIMEOUT) as client:
+            resp = await client.post(f"{backend_url}/v1/chat/completions", json=forwarded)
+        if not resp.is_success:
+            raise HTTPException(status_code=502,
+                                detail=f"LLM backend {node_name} returned {resp.status_code}: {resp.text[:300]}")
+        return resp.json()
+    finally:
+        _active_llm_nodes.discard(node_name)
 
 
 async def _process_job(job: Job) -> None:

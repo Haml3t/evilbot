@@ -43,10 +43,10 @@ llm:
     nodes: [evilbot, gpu-desktop]
     backend_model: "mistral:7b-instruct-q4_0"
 
-  mistral-34b:
+  qwen-32b:
     vram_mb: 19000
     nodes: [gpu-desktop]
-    backend_model: "mistral:34b-instruct-q4_0"
+    backend_model: "qwen2.5:32b-instruct-q4_K_M"
 
 nodes:
   evilbot:
