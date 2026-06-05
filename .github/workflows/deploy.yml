@@ -1,0 +1,71 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'inference/proxy/**'
+      - 'telegram-bot/**'
+      - 'inference/image-api/**'
+
+jobs:
+  # Detect which services actually changed in this push.
+  changes:
+    name: Detect changed services
+    runs-on: [self-hosted, opsbot]
+    outputs:
+      proxy: ${{ steps.diff.outputs.proxy }}
+      bot: ${{ steps.diff.outputs.bot }}
+      image_api: ${{ steps.diff.outputs.image_api }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Diff changed paths
+        id: diff
+        run: |
+          files=$(git diff --name-only HEAD~1 HEAD)
+          echo "proxy=$(echo "$files"    | grep -q '^inference/proxy/'    && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "bot=$(echo "$files"      | grep -q '^telegram-bot/'       && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "image_api=$(echo "$files"| grep -q '^inference/image-api/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  # inference/proxy → inferbot (192.168.1.223)
+  deploy-proxy:
+    name: inference-proxy → inferbot
+    needs: changes
+    if: needs.changes.outputs.proxy == 'true'
+    runs-on: [self-hosted, opsbot]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        run: |
+          scp inference/proxy/main.py inference/proxy/models.yaml root@inferbot:/opt/inference-proxy/
+          ssh root@inferbot systemctl restart inference-proxy
+          ssh root@inferbot systemctl is-active inference-proxy
+
+  # telegram-bot → evilbot-telegram (192.168.1.238 via jump 192.168.1.145)
+  deploy-bot:
+    name: telegram-bot → evilbot-telegram
+    needs: changes
+    if: needs.changes.outputs.bot == 'true'
+    runs-on: [self-hosted, opsbot]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        run: |
+          scp -J evilbot telegram-bot/evilbot.py root@evilbot-telegram:/opt/evilbot/evilbot.py
+          ssh -J evilbot root@evilbot-telegram systemctl restart evilbot
+          ssh -J evilbot root@evilbot-telegram systemctl is-active evilbot
+
+  # inference/image-api → gpu-desktop (192.168.1.12 via jump 192.168.1.145)
+  deploy-image-api:
+    name: image-api → gpu-desktop
+    needs: changes
+    if: needs.changes.outputs.image_api == 'true'
+    runs-on: [self-hosted, opsbot]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        run: |
+          scp -J evilbot inference/image-api/main.py gpu-desktop:~/ai/image-api/main.py
+          ssh -J evilbot gpu-desktop 'docker compose -f ~/ai/compose.yml restart image-api'
