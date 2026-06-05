@@ -110,7 +110,8 @@ LLM_ALIASES: dict[str, str] = {
     "small":   "llama-3-8b",
     "llama":   "llama-3-8b",
     "mistral": "mistral-7b",
-    "large":   "mistral-34b",
+    "large":   "qwen-32b",
+    "qwen":    "qwen-32b",
 }
 DEFAULT_LLM_MODEL = "llama-3-8b"
 
