@@ -1,10 +1,12 @@
 import asyncio
 from dotenv import load_dotenv
+import html
 import logging
 import httpx
 import io
 import os
 import random
+import re
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -94,6 +96,26 @@ async def randomsongtitle(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await update.message.reply_text(f"Random Song Title: {song}")
 
 
+def _format_with_think(text: str) -> tuple[str, str | None]:
+    """Wrap <think> block in a Telegram spoiler; return (text, parse_mode)."""
+    m = re.search(r'<think>(.*?)</think>', text, re.DOTALL)
+    if not m:
+        return text[:4096], None
+    think_raw = m.group(1).strip()
+    answer = text[m.end():].strip()
+    MAX_THINK = 1200
+    think_display = html.escape(think_raw[:MAX_THINK])
+    if len(think_raw) > MAX_THINK:
+        think_display += f" …({len(think_raw) - MAX_THINK} more chars)"
+    spoiler = f"<tg-spoiler>💭 {think_display}</tg-spoiler>"
+    answer_esc = html.escape(answer)
+    combined = f"{spoiler}\n\n{answer_esc}"
+    if len(combined) > 4096:
+        trim = 4096 - len(spoiler) - 6
+        combined = f"{spoiler}\n\n{html.escape(answer[:trim])}…"
+    return combined, "HTML"
+
+
 # ---------------------------------------------------------------------------
 # Image generation
 # ---------------------------------------------------------------------------
@@ -107,11 +129,13 @@ IMAGEGEN_ALIASES: dict[str, str] = {
 DEFAULT_IMAGEGEN_MODEL = "sd-1.5"
 
 LLM_ALIASES: dict[str, str] = {
-    "small":   "llama-3-8b",
-    "llama":   "llama-3-8b",
-    "mistral": "mistral-7b",
-    "large":   "qwen-32b",
-    "qwen":    "qwen-32b",
+    "small":       "llama-3-8b",
+    "llama":       "llama-3-8b",
+    "mistral":     "mistral-7b",
+    "large":       "qwen-32b",
+    "qwen":        "qwen-32b",
+    "think":       "qwen-32b-think",
+    "qwen-think":  "qwen-32b-think",
 }
 DEFAULT_LLM_MODEL = "llama-3-8b"
 
@@ -310,7 +334,8 @@ async def _poll_llm_job(
                     reply_text = result["choices"][0]["message"]["content"]
                 except (KeyError, IndexError):
                     reply_text = str(result)
-                await update.message.reply_text(reply_text[:4096])
+                formatted, parse_mode = _format_with_think(reply_text)
+                await update.message.reply_text(formatted, parse_mode=parse_mode)
                 try:
                     await status_msg.delete()
                 except Exception:
@@ -370,7 +395,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             r.raise_for_status()
             reply = r.json()["choices"][0]["message"]["content"]
 
-        await update.message.reply_text(reply[:4096])
+        formatted, parse_mode = _format_with_think(reply)
+        await update.message.reply_text(formatted, parse_mode=parse_mode)
 
     except httpx.HTTPStatusError as e:
         await update.message.reply_text(

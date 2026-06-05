@@ -265,6 +265,8 @@ async def _run_llm(node_name: str, model_info: dict, body: dict) -> dict:
     try:
         backend_url = NODES[node_name]["llm_url"]
         forwarded = {**body, "model": model_info["backend_model"], "stream": False}
+        if model_info.get("think"):
+            forwarded["think"] = True
         async with httpx.AsyncClient(timeout=BACKEND_TIMEOUT) as client:
             resp = await client.post(f"{backend_url}/v1/chat/completions", json=forwarded)
         if not resp.is_success:
@@ -438,6 +440,8 @@ async def _enqueue_or_run_llm(body: dict) -> tuple[dict | None, Job | None]:
         node_name = await pick_node(model_info, "llm")
         backend_url = NODES[node_name]["llm_url"]
         forwarded = {**body, "model": model_info["backend_model"]}
+        if model_info.get("think"):
+            forwarded["think"] = True
 
         async def generate():
             async with httpx.AsyncClient(timeout=BACKEND_TIMEOUT) as client:

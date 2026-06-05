@@ -23,14 +23,14 @@ imagegen:
     backend_model: "sd_xl_refiner_1.0.safetensors"
 
   flux-schnell:
-    vram_mb: 12000
-    nodes: [gpu-desktop]
-    backend_model: "flux1-schnell.safetensors"
-
-  flux-dev:
     vram_mb: 20000
     nodes: [gpu-desktop]
-    backend_model: "flux1-dev.safetensors"
+    backend_model: "flux1-schnell-fp8.safetensors"
+
+  flux-dev:
+    vram_mb: 22000
+    nodes: [gpu-desktop]
+    backend_model: "flux1-dev-fp8.safetensors"
 
 llm:
   llama-3-8b:
@@ -47,6 +47,12 @@ llm:
     vram_mb: 19000
     nodes: [gpu-desktop]
     backend_model: "qwen2.5:32b-instruct-q4_K_M"
+
+  qwen-32b-think:
+    vram_mb: 19000
+    nodes: [gpu-desktop]
+    backend_model: "qwen2.5:32b-instruct-q4_K_M"
+    think: true
 
 nodes:
   evilbot:
