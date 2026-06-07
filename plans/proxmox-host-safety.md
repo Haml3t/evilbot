@@ -14,6 +14,7 @@ changes to the *host itself*.
 - [ ] Phase 2: Proxmox host config as code (Ansible) ← **next priority**
 - [x] Phase 3: Host backup strategy
 - [ ] Phase 4: Staging / change validation workflow
+- [x] Phase 5: Claude command guardrails & least-privilege host access
 
 ---
 
@@ -228,6 +229,41 @@ single-machine homelab. The practical equivalent is:
 
 This also enables Proxmox Cluster setup (2-node with corosync tie-breaker), which enables
 live migration of VMs between nodes.
+
+---
+
+## Phase 5: Claude Command Guardrails & Least-Privilege Host Access
+
+**Problem:** claudebot is AI-operated. A rogue or erroneous command — from the model or a
+human — could irreversibly destroy the `tank` pool or the host. The pre-existing controls
+(Phase 1 firewall, Phase 3 backups) bound *where* claudebot reaches and recover *data*, but
+nothing stopped *what command executed* on evilbot, and the Terraform token held `PVEAdmin`
+on `/`.
+
+**Done.** Full writeup: [`../docs/claudebot-hardening.md`](../docs/claudebot-hardening.md).
+
+1. **Least-privilege Proxmox token** — rotated `terraform-lxc@pve!lxc` and re-scoped it
+   (privsep=1) to a custom `ClaudebotLXC` role: container lifecycle on `/pool/claudebots` +
+   `Datastore.AllocateSpace` on `/storage/local-lvm`, `PVEAuditor` read-only on `/`,
+   `PVESDNUser` on the sdn zone. No `PVEAdmin`, no `Sys.PowerMgmt`, no `Datastore.Allocate`.
+   Verified `403` on host reboot. This realises the "minimum scope" rule in `CLAUDE.md`.
+
+2. **ZFS destroy guard** — recursive `tank@keep-<date>` snapshot pinned with a `guard` hold
+   on every dataset, so `zfs destroy -r tank` fails until explicitly released. (Does not stop
+   `zpool destroy` — see control 3.)
+
+3. **Per-command approval hook** — a Claude Code PreToolUse hook
+   ([`../claude-guardrails/`](../claude-guardrails/)) forces a human approval prompt
+   (`permissionDecision: "ask"`) for catastrophic commands, all `ssh`/`scp`, host-mutating
+   actions (`terraform apply|destroy`, `pveum`, mutating Proxmox API), and self-modification
+   of the agent's own config. Overrides auto-mode; benign local work still flows.
+
+4. **SSH key** — left as root (claudebot is designed to manage evilbot); the approval hook is
+   the guard rather than a forced-command allowlist.
+
+**Still open:** an off-pool immutable backup (control against `zpool destroy`), `auditd`
+command logging on evilbot, and reducing the dormant broad ACLs on the `terraform-lxc@pve`
+*user*.
 
 ---
 

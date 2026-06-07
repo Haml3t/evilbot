@@ -133,6 +133,12 @@ Prefer API tokens over `ssh root@192.168.1.145` for automation. Use the minimum 
 
 **Never combine** `Sys.PowerMgmt` + `Datastore.Allocate` + `VM.Config.Disk` in a single token — that combination can irreversibly destroy storage. When in doubt, use the read-only token first and escalate only as needed.
 
+**Implemented:** the `terraform-lxc@pve!lxc` token runs with privilege separation (privsep=1)
+under a custom `ClaudebotLXC` role scoped to `/pool/claudebots` + `/storage/local-lvm`, with
+read-only `PVEAuditor` on `/` — no `PVEAdmin` anywhere, and none of the dangerous trio above.
+See [`docs/claudebot-hardening.md`](docs/claudebot-hardening.md) and
+[`claude-guardrails/`](claude-guardrails/) for the full hardening posture.
+
 Tokens are created at: Datacenter → Permissions → API Tokens in the web UI.
 
 ## Notes & Gotchas
