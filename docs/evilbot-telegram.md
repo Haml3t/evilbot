@@ -4,8 +4,8 @@
 
 # evilbot-telegram
 
-**VM:** QEMU vmid 200 | Ubuntu 24.04 LTS | 192.168.1.239  
-**Access:** `ssh -J root@<proxmox-host> root@192.168.1.239`  
+**VM:** QEMU vmid 200 | Ubuntu 24.04 LTS | 192.168.0.238  
+**Access:** `ssh -J root@<proxmox-host> root@192.168.0.238`  
 **Role:** Telegram bot + image generation frontend
 
 ---

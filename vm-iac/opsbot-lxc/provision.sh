@@ -17,13 +17,13 @@ set -euo pipefail
 CONTAINER_IP="${1:?Usage: $0 <container-ip> <github-runner-token>}"
 RUNNER_TOKEN="${2:?Usage: $0 <container-ip> <github-runner-token>}"
 REPO_URL="https://github.com/Haml3t/evilbot"
-JUMP="root@192.168.1.145"
+JUMP="root@192.168.0.145"
 RUNNER_VERSION="2.325.0"
 
 # Deploy targets — must match the SSH config written below
-INFERBOT_IP="192.168.1.223"
-TELEGRAM_IP="192.168.1.238"
-GPU_DESKTOP_IP="192.168.1.12"
+INFERBOT_IP="192.168.0.223"
+TELEGRAM_IP="192.168.0.238"
+GPU_DESKTOP_IP="192.168.0.12"
 GPU_DESKTOP_USER="<user>"   # replace with actual username on gpu-desktop
 
 echo "==> Provisioning opsbot at $CONTAINER_IP"
@@ -57,7 +57,7 @@ ssh -J "$JUMP" "root@$CONTAINER_IP" bash << REMOTE
 set -euo pipefail
 cat > /home/runner/.ssh/config << 'SSHCONF'
 Host evilbot
-  HostName 192.168.1.145
+  HostName 192.168.0.145
   User root
   StrictHostKeyChecking accept-new
 
@@ -93,7 +93,7 @@ echo "  ✓ inferbot"
 # evilbot host (needed as jump host for telegram + gpu-desktop)
 ssh -o StrictHostKeyChecking=accept-new "root@$JUMP" \
   "echo '$OPSBOT_PUBKEY' >> /root/.ssh/authorized_keys && sort -u /root/.ssh/authorized_keys -o /root/.ssh/authorized_keys" 2>/dev/null || \
-ssh "root@192.168.1.145" \
+ssh "root@192.168.0.145" \
   "echo '$OPSBOT_PUBKEY' >> /root/.ssh/authorized_keys && sort -u /root/.ssh/authorized_keys -o /root/.ssh/authorized_keys"
 echo "  ✓ evilbot (jump host)"
 

@@ -13,7 +13,7 @@
 set -euo pipefail
 
 VMID="${1:?Usage: $0 <vmid>}"
-EVILBOT="root@192.168.1.145"
+EVILBOT="root@192.168.0.145"
 EVILBOT_SECRETS="/root/.secrets/devbox.env"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -38,8 +38,8 @@ if ! ssh "$EVILBOT" "test -f $EVILBOT_SECRETS"; then
   echo ""
   echo "ERROR: $EVILBOT_SECRETS not found on evilbot."
   echo "Create it from the template:"
-  echo "  scp $SCRIPT_DIR/devbox-secrets.env.example root@192.168.1.145:$EVILBOT_SECRETS"
-  echo "  ssh root@192.168.1.145 'vi $EVILBOT_SECRETS'"
+  echo "  scp $SCRIPT_DIR/devbox-secrets.env.example root@192.168.0.145:$EVILBOT_SECRETS"
+  echo "  ssh root@192.168.0.145 'vi $EVILBOT_SECRETS'"
   exit 1
 fi
 
@@ -85,7 +85,7 @@ echo "╔═══════════════════════�
 echo "║  devbox $VMID is ready!                                     "
 echo "╠══════════════════════════════════════════════════════════════╣"
 echo "║  IP:      $CONTAINER_IP"
-echo "║  SSH:     ssh -J root@192.168.1.145 root@$CONTAINER_IP"
+echo "║  SSH:     ssh -J root@192.168.0.145 root@$CONTAINER_IP"
 echo "║  Repos:   ~/work/"
 echo "║  Claude:  first SSH will prompt for OAuth login (one-time)"
 echo "╚══════════════════════════════════════════════════════════════╝"

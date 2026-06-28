@@ -12,7 +12,7 @@ employer identity.** When in doubt, leave it out and ask.
 
 ## What is safe to publish
 
-- **LAN / RFC1918 IPs** (`192.168.1.x`, `10.x`, `172.16–31.x`) — not routable
+- **LAN / RFC1918 IPs** (`192.168.0.x`, `10.x`, `172.16–31.x`) — not routable
   from the internet.
 - **SSH _public_ keys** — public by design.
 - **Config structure, scripts, Terraform/Ansible, and plans** where every

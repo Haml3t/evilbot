@@ -51,7 +51,7 @@ Files that need scrubbing before they're safe to publish:
 
 | File | Sensitive content | Action |
 |---|---|---|
-| `CLAUDE.md` | LAN IPs (`192.168.1.x`), Tailscale domain | Template with `<proxmox-host-ip>`, `<tailscale-domain>` — or leave as-is (RFC1918 IPs are not routable externally, low risk) |
+| `CLAUDE.md` | LAN IPs (`192.168.0.x`), Tailscale domain | Template with `<proxmox-host-ip>`, `<tailscale-domain>` — or leave as-is (RFC1918 IPs are not routable externally, low risk) |
 | `docs/evilbot-nas.md` | RPC credentials reference | Already references `/etc/transmission-remote.env`, not hardcoded — safe |
 | `docs/evilbot-telegram.md` | No secrets hardcoded — safe as-is | — |
 | `infra/terraform.tfvars` | API token secrets | Excluded by .gitignore; provide `terraform.tfvars.example` instead |
@@ -141,7 +141,7 @@ Experiment with at least two and pick the best:
 **Option A — Mermaid (renders natively in GitHub)**
 ```mermaid
 graph TD
-  evilbot[evilbot\nProxmox host\n192.168.1.145]
+  evilbot[evilbot\nProxmox host\n192.168.0.145]
   nas[evilbot-nas\nvmid 100\nTransmission + Samba]
   telegram[evilbot-telegram\nvmid 200\nTelegram bot + ComfyUI]
   claudebot[claudebot\nvmid 300\nClaude Code sandbox]

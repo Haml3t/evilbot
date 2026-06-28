@@ -1,5 +1,5 @@
 # Nomad client config — runs on the evilbot Proxmox host
-# Deploy to: /etc/nomad.d/client.hcl on evilbot (192.168.1.145)
+# Deploy to: /etc/nomad.d/client.hcl on evilbot (192.168.0.145)
 # Start with: systemctl enable --now nomad
 #
 # Prerequisites on evilbot:

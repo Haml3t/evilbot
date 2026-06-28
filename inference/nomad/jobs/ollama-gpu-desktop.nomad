@@ -2,7 +2,7 @@
 # Serves larger quantized models: Mistral 34B Q4, Mixtral 8x7B Q4
 #
 # After deploying, pull models:
-#   curl -X POST http://192.168.1.12:11434/api/pull -d '{"name": "mistral:34b-instruct-q4_0"}'
+#   curl -X POST http://192.168.0.12:11434/api/pull -d '{"name": "mistral:34b-instruct-q4_0"}'
 #
 # Note: Llama 3 70B Q4 (~40GB) exceeds the RTX 3090's 24GB — not supported.
 # Largest practical model: Mistral 34B Q4 (~18-20GB), Mixtral 8x7B Q4 (~26GB, marginal).

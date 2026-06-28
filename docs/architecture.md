@@ -23,16 +23,16 @@ Both GPU hosts run:
 
 ```mermaid
 graph TD
-    subgraph evilbot["evilbot (Proxmox host · 192.168.1.145)"]
-        nas["evilbot-nas\nvmid 100 · 192.168.1.67\nQEMU VM\nNAS + torrent client\n/tank via virtiofs"]
-        telegram["evilbot-telegram\nvmid 200 · 192.168.1.238\nQEMU VM\nTelegram bot process"]
-        claudebot["claudebot\nvmid 300 · 192.168.1.222\nLXC (unprivileged)\nAI dev workspace"]
-        jellyfin["jellyfin\nvmid 400 · 192.168.1.196\nLXC (unprivileged)\nJellyfin media server"]
-        inferbot["inferbot\nvmid 500 · 192.168.1.223\nLXC (unprivileged)\nInference routing proxy"]
-        opsbot["opsbot\nvmid 600 · 192.168.1.224\nLXC (unprivileged)\nGitHub Actions runner"]
+    subgraph evilbot["evilbot (Proxmox host · 192.168.0.145)"]
+        nas["evilbot-nas\nvmid 100 · 192.168.0.67\nQEMU VM\nNAS + torrent client\n/tank via virtiofs"]
+        telegram["evilbot-telegram\nvmid 200 · 192.168.0.238\nQEMU VM\nTelegram bot process"]
+        claudebot["claudebot\nvmid 300 · 192.168.0.222\nLXC (unprivileged)\nAI dev workspace"]
+        jellyfin["jellyfin\nvmid 400 · 192.168.0.196\nLXC (unprivileged)\nJellyfin media server"]
+        inferbot["inferbot\nvmid 500 · 192.168.0.223\nLXC (unprivileged)\nInference routing proxy"]
+        opsbot["opsbot\nvmid 600 · 192.168.0.224\nLXC (unprivileged)\nGitHub Actions runner"]
     end
 
-    gpudesktop["gpu-desktop\n192.168.1.12\nbare-metal desktop"]
+    gpudesktop["gpu-desktop\n192.168.0.12\nbare-metal desktop"]
 
     tank[("ZFS tank\n22 TB")]
     nas --- tank
@@ -157,7 +157,7 @@ graph LR
 
     imagine -- "POST /image → proxy" --> proxy
     chat -- "POST /v1/chat/completions → proxy\npolled async for queued jobs" --> proxy
-    proxy["Inference proxy\n192.168.1.223:8000"]
+    proxy["Inference proxy\n192.168.0.223:8000"]
 ```
 
 **Chain-of-thought (think mode):** When the bot receives a response containing a `<think>...</think>` block from Qwen 2.5's reasoning mode, it wraps the reasoning in a Telegram `<tg-spoiler>` tag (tap-to-reveal) and shows the final answer plaintext below.
@@ -216,7 +216,7 @@ All containers and VMs are provisioned via Terraform using the `bpg/proxmox` pro
 graph TD
     tf["Terraform\nbpg/proxmox provider"]
 
-    tf --> pve["Proxmox API\n192.168.1.145:8006"]
+    tf --> pve["Proxmox API\n192.168.0.145:8006"]
 
     pve --> claudebot_lxc["claudebot LXC\nvmid 300"]
     pve --> inferbot_lxc["inferbot LXC\nvmid 500"]

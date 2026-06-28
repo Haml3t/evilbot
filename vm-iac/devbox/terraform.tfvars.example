@@ -12,7 +12,7 @@ memory_mb    = 4096
 disk_storage = "local-lvm"
 disk_size_gb = 32
 
-# Available templates: ssh root@192.168.1.145 "pveam list local"
+# Available templates: ssh root@192.168.0.145 "pveam list local"
 template_file_id = "local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst"
 
 # Your SSH public key — gets injected into root's authorized_keys:

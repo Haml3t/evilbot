@@ -5,7 +5,7 @@ proxmox_api_token = "user@pam!token-id=SECRET"
 
 vm_id            = 600
 hostname         = "opsbot"
-ip_address       = "192.168.1.224/24"   # or "dhcp"
+ip_address       = "192.168.0.224/24"   # or "dhcp"
 cpu_cores        = 1
 memory_mb        = 1024
 disk_storage     = "local-lvm"

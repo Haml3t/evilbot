@@ -5,7 +5,7 @@
 set -euo pipefail
 
 CONTAINER_IP="${1:?Usage: $0 <container-ip>}"
-JUMP="root@192.168.1.145"
+JUMP="root@192.168.0.145"
 
 echo "==> Provisioning claudebot at $CONTAINER_IP"
 

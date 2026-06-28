@@ -18,9 +18,9 @@ MAX_QUEUE = int(os.environ.get("MAX_QUEUE", "20"))
 WAITERS = 0
 
 # Backend selection
-PRIMARY_COMFYUI = os.environ.get("PRIMARY_COMFYUI_URL")  # e.g. http://192.168.1.50:8288
+PRIMARY_COMFYUI = os.environ.get("PRIMARY_COMFYUI_URL")  # e.g. http://192.168.0.50:8288
 FALLBACK_COMFYUI = os.environ.get("FALLBACK_COMFYUI_URL", "http://comfyui:8188")  # local docker service
-SASHAY_GATE_URL = os.environ.get("SASHAY_GATE_URL")  # e.g. http://192.168.1.50:8799/can_accept
+SASHAY_GATE_URL = os.environ.get("SASHAY_GATE_URL")  # e.g. http://192.168.0.50:8799/can_accept
 
 # Back-compat: if COMFYUI_URL is set, treat it as FALLBACK unless explicit vars provided
 COMFYUI_ENV = os.environ.get("COMFYUI_URL")

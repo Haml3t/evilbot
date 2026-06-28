@@ -34,7 +34,7 @@ Those must be scrubbed before the next `git add`/push.
    personal first name, a real desktop hostname, and a host IP that the prior scrub explicitly
    removed elsewhere. Run the `.safety-denylist` scan (the template is already in the tree) as a
    pre-commit gate. **This is the only High-priority item, and it is preventative, not a current leak.**
-2. **Keep the 192.168.1.x LAN IPs as-is.** Templating them adds zero security value and
+2. **Keep the 192.168.0.x LAN IPs as-is.** Templating them adds zero security value and
    degrades the portfolio's readability (see the dedicated verdict below). Do **not** spend
    effort on this.
 3. **Remove the password-reset recipe and salt/hash format string from `docs/jellyfin.md`,**
@@ -43,22 +43,22 @@ Those must be scrubbed before the next `git add`/push.
 
 ---
 
-## Headline Question: Are the 192.168.1.x LAN IPs a real risk? Should they be templated/removed?
+## Headline Question: Are the 192.168.0.x LAN IPs a real risk? Should they be templated/removed?
 
 **Verdict: No, they are not a real risk. Keep them as-is. Do not template or remove them.**
 
 Reasoning, concretely:
 
 - **They are RFC1918 (`192.168.0.0/16`).** They are not routable from the public internet.
-  An external attacker cannot send a packet to `192.168.1.145` from outside the network. The
+  An external attacker cannot send a packet to `192.168.0.145` from outside the network. The
   address is meaningless to them.
 - **They leak only that the network uses the single most common default consumer subnet
-  on earth.** `192.168.1.0/24` with the gateway at `.1` is the factory default of a large
+  on earth.** `192.168.0.0/24` with the gateway at `.1` is the factory default of a large
   fraction of home routers. Disclosing it tells an attacker essentially nothing they wouldn't
   assume by default.
 - **For the only attacker who *can* reach these addresses — one already on the LAN or in the
   Tailnet — the IPs provide no privilege.** Someone with a LAN foothold runs `arp -a` or
-  `nmap -sn 192.168.1.0/24` and learns every live host, open port, and service banner in
+  `nmap -sn 192.168.0.0/24` and learns every live host, open port, and service banner in
   under a second. The repo's value to that attacker (a tidy inventory of 5 hosts) is a rounding
   error against what they already have. Disclosure does not change their capability.
 - **Templating actively hurts.** This is a portfolio repo whose *point* is to show real,
@@ -87,7 +87,7 @@ Threat actors referenced below:
 
 | # | Disclosed item | Where | What it reveals | Realistic threat | Severity | Recommendation |
 |---|---|---|---|---|---|---|
-| 1 | **LAN/RFC1918 IPs** (`192.168.1.145`, `.67`, `.222`, `.239`, `.196`, gateway `.1`) | CLAUDE.md, all docs, IaC, scripts | The default home subnet + per-host addresses | EXT: none (unroutable). LAN: trivially self-discoverable. | **Low** | **Keep as-is.** See verdict above. |
+| 1 | **LAN/RFC1918 IPs** (`192.168.0.145`, `.67`, `.222`, `.239`, `.196`, gateway `.1`) | CLAUDE.md, all docs, IaC, scripts | The default home subnet + per-host addresses | EXT: none (unroutable). LAN: trivially self-discoverable. | **Low** | **Keep as-is.** See verdict above. |
 | 2 | **SSH *public* key** (`ssh-ed25519 …claudebot-to-evilbot`) | CLAUDE.md, plans/jellyfin.md | A public key. Public keys are designed to be shared. | None. A public key cannot be used to authenticate *as* the holder; it only lets others verify the holder. No private-key exposure. | **Low** | **Keep as-is.** Standard and safe. |
 | 3 | **Full network topology + vmids** (host + 4 guests, vmid 100/200/300/400, roles, OS, jump-host chain) | CLAUDE.md table, plans, docs | Complete inventory: what runs where, which is the jump host, which lacks a guest agent | EXT: none. LAN/TS: saves recon time only; confers no access. The jump-host design is itself a sound control. | **Low** | **Keep as-is.** Good portfolio content; no privilege leak. |
 | 4 | **Software & version strings** (Jellyfin 10.11.8, python-telegram-bot 22.5, httpx 0.28.1, Node 22, Debian 12, Ubuntu 24.04, bpg/proxmox ~0.73, Terraform 1.6.6) | docs, requirements, IaC | Exact versions → an attacker can look up known CVEs for those versions | EXT: none (services not exposed). LAN/TS: could match a version to a public CVE *if* a service is reachable. Versions drift; this is a snapshot. | **Low–Med** | **Keep, but treat as a patching reminder.** Don't hide versions; instead keep the software patched. Pinned versions in a public portfolio are normal and expected. |
@@ -115,10 +115,10 @@ leak the moment someone runs `git add . && git push` without scrubbing.
 
 | Untracked path | Sensitive content | Action before committing |
 |---|---|---|
-| `proxmox-host/backup/host-offsite-sync.sh` | Real personal first name as a username, a real second-machine hostname, and host IP `192.168.1.12` | Replace name → generic user, hostname → `<offsite-host>`, keep IP (LAN, fine) |
+| `proxmox-host/backup/host-offsite-sync.sh` | Real personal first name as a username, a real second-machine hostname, and host IP `192.168.0.12` | Replace name → generic user, hostname → `<offsite-host>`, keep IP (LAN, fine) |
 | `docs/proxmox-host-backup-recovery.md` | Same real name (`<user>@<host>:/backups/…`) and hostname repeated throughout | Genericize name + hostname |
 | `proxmox-host/backup/cron-entries.txt` (modified) | Adds an off-host-sync line naming the real desktop hostname | Genericize hostname |
-| `inference/` (whole tree: proxy, nomad jobs, vram-reporter) | Real first name as SSH user, the second-machine hostname, IP `192.168.1.12`, ComfyUI/Ollama topology across two GPU nodes | Genericize name + hostname before publishing; review `models.yaml` for any embedded URLs |
+| `inference/` (whole tree: proxy, nomad jobs, vram-reporter) | Real first name as SSH user, the second-machine hostname, IP `192.168.0.12`, ComfyUI/Ollama topology across two GPU nodes | Genericize name + hostname before publishing; review `models.yaml` for any embedded URLs |
 | `vm-iac/inferbot-lxc/`, `proxmox-host/firewall/500-inferbot.fw` | New LXC/firewall defs (topology only — low, but review) | Review with the rest; topology-only is fine to keep |
 
 **Gate to add:** the repo already ships `.safety-denylist.example`. Copy it to a local

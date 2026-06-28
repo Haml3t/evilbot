@@ -10,7 +10,7 @@ terraform {
 # Migrated from Telmate/proxmox (password auth) to bpg/proxmox (API token auth).
 # Token: terraform-lxc@pve!lxc — see /root/.secrets/proxmox-tokens.env on claudebot.
 provider "proxmox" {
-  endpoint  = "https://192.168.1.145:8006/"
+  endpoint  = "https://192.168.0.145:8006/"
   api_token = var.proxmox_api_token
   insecure  = true
 }
@@ -60,8 +60,8 @@ resource "proxmox_virtual_environment_vm" "evilbot_nas" {
 
   # virtiofs share — exposes /tank from the host into the VM as "tankshare"
   # NOTE: virtiofs is configured in the Proxmox host config, not via Terraform API.
-  # After apply, verify with: ssh root@192.168.1.145 "qm config 100 | grep virtiofs"
-  # If missing: ssh root@192.168.1.145 "qm set 100 --virtiofs0 dirid=tankshare,cache=auto"
+  # After apply, verify with: ssh root@192.168.0.145 "qm config 100 | grep virtiofs"
+  # If missing: ssh root@192.168.0.145 "qm set 100 --virtiofs0 dirid=tankshare,cache=auto"
 
   agent {
     enabled = false  # no QEMU guest agent installed

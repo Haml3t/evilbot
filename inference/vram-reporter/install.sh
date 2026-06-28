@@ -3,8 +3,8 @@
 # Run as root on the target machine.
 #
 # Usage (from evilbot-repo root):
-#   On evilbot:  ssh root@192.168.1.145 'bash -s' < inference/vram-reporter/install.sh
-#   On gpu-desktop:   ssh <user>@192.168.1.12 'sudo bash -s' < inference/vram-reporter/install.sh
+#   On evilbot:  ssh root@192.168.0.145 'bash -s' < inference/vram-reporter/install.sh
+#   On gpu-desktop:   ssh <user>@192.168.0.12 'sudo bash -s' < inference/vram-reporter/install.sh
 set -euo pipefail
 
 INSTALL_DIR="/opt/vram-reporter"

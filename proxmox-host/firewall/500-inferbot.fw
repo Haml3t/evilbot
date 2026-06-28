@@ -12,14 +12,14 @@ enable: 1
 [RULES]
 # --- Inbound ---
 # Allow SSH from the LAN for management
-IN ACCEPT -p tcp -source 192.168.1.0/24 -dport 22 -log nolog
+IN ACCEPT -p tcp -source 192.168.0.0/24 -dport 22 -log nolog
 
 # Allow requests to the routing proxy from the LAN
-IN ACCEPT -p tcp -source 192.168.1.0/24 -dport 8000 -log nolog
+IN ACCEPT -p tcp -source 192.168.0.0/24 -dport 8000 -log nolog
 
 # Allow Nomad agent connections from the two GPU nodes only
-IN ACCEPT -p tcp -source 192.168.1.145 -dport 4646:4648 -log nolog
-IN ACCEPT -p tcp -source 192.168.1.12  -dport 4646:4648 -log nolog
+IN ACCEPT -p tcp -source 192.168.0.145 -dport 4646:4648 -log nolog
+IN ACCEPT -p tcp -source 192.168.0.12  -dport 4646:4648 -log nolog
 
 # --- Outbound ---
 # Allow HTTP/HTTPS for package installs and bootstrapping
@@ -27,21 +27,21 @@ OUT ACCEPT -p tcp -dport 80  -log nolog
 OUT ACCEPT -p tcp -dport 443 -log nolog
 
 # Allow inference API calls and VRAM reporter to evilbot GPU node
-OUT ACCEPT -p tcp -dest 192.168.1.145 -dport 8188 -log nolog
-OUT ACCEPT -p tcp -dest 192.168.1.145 -dport 8288 -log nolog
-OUT ACCEPT -p tcp -dest 192.168.1.145 -dport 5005 -log nolog
-OUT ACCEPT -p tcp -dest 192.168.1.145 -dport 11434 -log nolog
-OUT ACCEPT -p tcp -dest 192.168.1.145 -dport 9835 -log nolog
+OUT ACCEPT -p tcp -dest 192.168.0.145 -dport 8188 -log nolog
+OUT ACCEPT -p tcp -dest 192.168.0.145 -dport 8288 -log nolog
+OUT ACCEPT -p tcp -dest 192.168.0.145 -dport 5005 -log nolog
+OUT ACCEPT -p tcp -dest 192.168.0.145 -dport 11434 -log nolog
+OUT ACCEPT -p tcp -dest 192.168.0.145 -dport 9835 -log nolog
 
 # Allow inference API calls and VRAM reporter to gpu-desktop GPU node
-OUT ACCEPT -p tcp -dest 192.168.1.12 -dport 8188 -log nolog
-OUT ACCEPT -p tcp -dest 192.168.1.12 -dport 8288 -log nolog
-OUT ACCEPT -p tcp -dest 192.168.1.12 -dport 5005 -log nolog
-OUT ACCEPT -p tcp -dest 192.168.1.12 -dport 11434 -log nolog
-OUT ACCEPT -p tcp -dest 192.168.1.12 -dport 9835 -log nolog
+OUT ACCEPT -p tcp -dest 192.168.0.12 -dport 8188 -log nolog
+OUT ACCEPT -p tcp -dest 192.168.0.12 -dport 8288 -log nolog
+OUT ACCEPT -p tcp -dest 192.168.0.12 -dport 5005 -log nolog
+OUT ACCEPT -p tcp -dest 192.168.0.12 -dport 11434 -log nolog
+OUT ACCEPT -p tcp -dest 192.168.0.12 -dport 9835 -log nolog
 
 # Block outbound SSH — inferbot must not have shell access to other machines
 OUT DROP -p tcp -dport 22 -log warning
 
 # Block access to Proxmox management API — inferbot has no business touching it
-OUT DROP -p tcp -dest 192.168.1.145 -dport 8006 -log warning
+OUT DROP -p tcp -dest 192.168.0.145 -dport 8006 -log warning

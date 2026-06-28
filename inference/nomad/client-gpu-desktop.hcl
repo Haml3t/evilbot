@@ -1,4 +1,4 @@
-# Nomad client config — runs on gpu-desktop (192.168.1.12)
+# Nomad client config — runs on gpu-desktop (192.168.0.12)
 # Deploy to: /etc/nomad.d/client.hcl on gpu-desktop
 # Start with: systemctl enable --now nomad
 #

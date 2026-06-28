@@ -96,17 +96,17 @@ set -euo pipefail
 
 SOURCE_VMID=${1:?}
 TEST_VMID=${2:?}
-BACKUP=$(ssh root@192.168.1.145 "ls -t /tank/backups/vzdump-*-${SOURCE_VMID}-*.vma.zst 2>/dev/null | head -1")
+BACKUP=$(ssh root@192.168.0.145 "ls -t /tank/backups/vzdump-*-${SOURCE_VMID}-*.vma.zst 2>/dev/null | head -1")
 
 [[ -z "$BACKUP" ]] && { echo "No backup found for vmid $SOURCE_VMID"; exit 1; }
 
 echo "Restoring $BACKUP as vmid $TEST_VMID..."
-ssh root@192.168.1.145 "qmrestore $BACKUP $TEST_VMID --force 2>&1 || pct restore $TEST_VMID $BACKUP --force 2>&1"
-ssh root@192.168.1.145 "pct start $TEST_VMID"
+ssh root@192.168.0.145 "qmrestore $BACKUP $TEST_VMID --force 2>&1 || pct restore $TEST_VMID $BACKUP --force 2>&1"
+ssh root@192.168.0.145 "pct start $TEST_VMID"
 sleep 15
 
 # Get IP
-TEST_IP=$(ssh root@192.168.1.145 "pct exec $TEST_VMID -- ip -4 addr show eth0 | grep -oP '(?<=inet )[^/]+'")
+TEST_IP=$(ssh root@192.168.0.145 "pct exec $TEST_VMID -- ip -4 addr show eth0 | grep -oP '(?<=inet )[^/]+'")
 echo "Test container IP: $TEST_IP"
 
 # Run service-specific tests (sourced from tests/)
@@ -114,7 +114,7 @@ source "tests/${SOURCE_VMID}.sh"
 run_tests "$TEST_IP"
 
 # Cleanup
-ssh root@192.168.1.145 "pct stop $TEST_VMID && pct destroy $TEST_VMID"
+ssh root@192.168.0.145 "pct stop $TEST_VMID && pct destroy $TEST_VMID"
 echo "Restore test PASSED for vmid $SOURCE_VMID"
 ```
 

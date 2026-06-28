@@ -5,7 +5,7 @@
 set -euo pipefail
 
 VM_IP="${1:?Usage: $0 <vm-ip>}"
-JUMP="root@192.168.1.145"
+JUMP="root@192.168.0.145"
 SCRIPT_DIR="$(dirname "$0")"
 
 echo "==> Provisioning evilbot-nas at $VM_IP"

@@ -1,7 +1,7 @@
 # Claude Code — devbox
 
 This is a **disposable work devbox** — an LXC container on evilbot (Proxmox host at
-192.168.1.145). Destroy and re-provision freely; nothing here is permanent.
+192.168.0.145). Destroy and re-provision freely; nothing here is permanent.
 
 Work repos live in `~/work/`. Each is an independent project; see per-repo notes below.
 
@@ -13,8 +13,8 @@ Work repos live in `~/work/`. Each is an independent project; see per-repo notes
 
 | Host | IP | Access |
 |---|---|---|
-| evilbot (Proxmox) | 192.168.1.145 | `ssh root@192.168.1.145` |
-| claudebot (AI sandbox) | 192.168.1.222 | `ssh root@192.168.1.222` |
+| evilbot (Proxmox) | 192.168.0.145 | `ssh root@192.168.0.145` |
+| claudebot (AI sandbox) | 192.168.0.222 | `ssh root@192.168.0.222` |
 
 GitHub SSH key is pre-installed at `~/.ssh/work_id_ed25519` and routed through
 `~/.ssh/config` — `git clone git@github.com:...` works out of the box.

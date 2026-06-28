@@ -44,12 +44,12 @@ This lets us scope token permissions to just that pool rather than the whole dat
 Determine which CT template claudebot (vmid 300) was built from, or create a snapshot/template clone to use as the Terraform base image.
 
 ```bash
-ssh root@192.168.1.145 "pct config 300"
+ssh root@192.168.0.145 "pct config 300"
 ```
 
 Look for `ostemplate` or confirm it's a clone. If no template exists, create one:
 ```bash
-ssh root@192.168.1.145 "pct snapshot 300 baseline-snapshot"
+ssh root@192.168.0.145 "pct snapshot 300 baseline-snapshot"
 ```
 (Full template clone requires stopping the container — plan around that.)
 
@@ -79,7 +79,7 @@ terraform {
 }
 
 provider "proxmox" {
-  endpoint  = "https://192.168.1.145:8006/"
+  endpoint  = "https://192.168.0.145:8006/"
   api_token = var.proxmox_api_token   # format: "user@realm!tokenid=secret"
   insecure  = true                    # self-signed cert on evilbot
 }
@@ -116,7 +116,7 @@ Key parameters to mirror from vmid 300:
 - `proxmox_api_token` (sensitive)
 - `container_id` (or auto-assign)
 - `hostname`
-- `ip_address` (CIDR, e.g. `192.168.1.X/24`)
+- `ip_address` (CIDR, e.g. `192.168.0.X/24`)
 - `ssh_public_key`
 
 ---

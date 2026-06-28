@@ -6,7 +6,7 @@
 #   docker exec <container> ollama pull mistral:7b-instruct-q4_0
 #
 # Or use the Ollama API from inferbot:
-#   curl -X POST http://192.168.1.145:11434/api/pull -d '{"name": "llama3:8b-instruct-q4_0"}'
+#   curl -X POST http://192.168.0.145:11434/api/pull -d '{"name": "llama3:8b-instruct-q4_0"}'
 #
 # Deploy: nomad job run ollama-evilbot.nomad
 

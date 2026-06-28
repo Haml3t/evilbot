@@ -7,7 +7,7 @@ set -euo pipefail
 
 CONTAINER_IP="${1:?Usage: $0 <container-ip> [repo-path]}"
 REPO_PATH="${2:-/root/evilbot-repo}"
-JUMP="root@192.168.1.145"
+JUMP="root@192.168.0.145"
 
 echo "==> Provisioning inferbot at $CONTAINER_IP"
 
@@ -57,7 +57,7 @@ echo "==> Proxy dependencies installed."
 systemctl enable --now nomad
 sleep 3
 nomad server members || true
-echo "==> Done. SSH in with: ssh -J root@192.168.1.145 root@$1"
+echo "==> Done. SSH in with: ssh -J root@192.168.0.145 root@$1"
 REMOTE2
 
 echo "==> inferbot provisioned. SSH: ssh -J $JUMP root@$CONTAINER_IP"

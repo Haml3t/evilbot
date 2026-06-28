@@ -5,7 +5,7 @@ proxmox_api_token = "user@pam!token-id=SECRET"
 
 vm_id            = 500
 hostname         = "inferbot"
-ip_address       = "192.168.1.223/24"   # or "dhcp"
+ip_address       = "192.168.0.223/24"   # or "dhcp"
 cpu_cores        = 2
 memory_mb        = 2048
 disk_storage     = "local-lvm"
