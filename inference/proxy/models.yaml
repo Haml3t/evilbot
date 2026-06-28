@@ -56,15 +56,15 @@ llm:
 
 nodes:
   evilbot:
-    image_api_url: "http://192.168.1.145:5005"   # image-api wrapper — what the Telegram bot talks to
-    imagegen_url: "http://192.168.1.145:8288"     # ComfyUI native API — evilbot maps container :8188 → host :8288
-    llm_url: "http://192.168.1.145:11434"
-    vram_reporter_url: "http://192.168.1.145:9835"
+    image_api_url: "http://192.168.0.145:5005"   # image-api wrapper — what the Telegram bot talks to
+    imagegen_url: "http://192.168.0.145:8288"     # ComfyUI native API — evilbot maps container :8188 → host :8288
+    llm_url: "http://192.168.0.145:11434"
+    vram_reporter_url: "http://192.168.0.145:9835"
     vram_mb: 8192
 
   gpu-desktop:
-    image_api_url: "http://192.168.1.12:5005"
-    imagegen_url: "http://192.168.1.12:8188"
-    llm_url: "http://192.168.1.12:11434"
-    vram_reporter_url: "http://192.168.1.12:9835"
+    image_api_url: "http://192.168.0.12:5005"
+    imagegen_url: "http://192.168.0.12:8188"
+    llm_url: "http://192.168.0.12:11434"
+    vram_reporter_url: "http://192.168.0.12:9835"
     vram_mb: 24576

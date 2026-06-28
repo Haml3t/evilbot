@@ -4,21 +4,25 @@
 
 This is **claudebot** — an unprivileged Debian 12 LXC container (vmid 300) running on the Proxmox host **evilbot**. It is a general-purpose AI workspace: write code here, run experiments, manage infrastructure, and SSH out to other machines.
 
-- **Container IP:** 192.168.1.222
-- **Proxmox host:** evilbot — 192.168.1.145 (6 cores, ~47 GB RAM)
+- **Container IP:** 192.168.0.222
+- **Proxmox host:** evilbot — 192.168.0.145 (6 cores, ~47 GB RAM)
 - **Tailscale domain:** `<tailnet>.ts.net` (Tailscale CLI not yet installed in this container)
 
 ## Host & VM Topology
 
 | Name | Type | IP | Access | Notes |
 |---|---|---|---|---|
-| evilbot | Proxmox host | 192.168.1.145 | `ssh root@192.168.1.145` ✅ | 22TB ZFS pool `tank` |
-| evilbot-nas | QEMU VM (vmid 100) | 192.168.1.67 | `ssh -J root@192.168.1.145 root@192.168.1.67` ✅ | Custom Linux NAS; /tank shared in via virtiofs |
-| evilbot-telegram | QEMU VM (vmid 200) | 192.168.1.238 | `ssh -J root@192.168.1.145 root@192.168.1.238` ✅ | Telegram bot (no GPU); calls IMAGEGEN_URL; Ubuntu; no guest agent — IP via DHCP, was .239 |
-| jellyfin | LXC (vmid 400) | 192.168.1.196 | `ssh -J root@192.168.1.145 root@192.168.1.196` ✅ | Jellyfin media server; /tank/media bind-mounted at /media |
-| claudebot | LXC (vmid 300) | 192.168.1.222 | this container | |
+| evilbot | Proxmox host | 192.168.0.145 | `ssh root@192.168.0.145` ✅ | 22TB ZFS pool `tank` |
+| evilbot-nas | QEMU VM (vmid 100) | 192.168.0.67 | `ssh -J root@192.168.0.145 root@192.168.0.67` ✅ | Custom Linux NAS; /tank shared in via virtiofs |
+| evilbot-telegram | QEMU VM (vmid 200) | 192.168.0.238 | `ssh -J root@192.168.0.145 root@192.168.0.238` ✅ | Telegram bot (no GPU); calls IMAGEGEN_URL; Ubuntu; no guest agent — IP via DHCP, was .239 |
+| jellyfin | LXC (vmid 400) | 192.168.0.196 | `ssh -J root@192.168.0.145 root@192.168.0.196` ✅ | Jellyfin media server; /tank/media bind-mounted at /media |
+| inferbot | LXC (vmid 500) | 192.168.0.223 | `ssh -J root@192.168.0.145 root@192.168.0.223` ✅ | Nomad server + inference routing proxy; firewalled HTTP-only. **Static IP** (gw 192.168.0.1) |
+| opsbot | LXC (vmid 600) | 192.168.0.224 | `ssh -J root@192.168.0.145 root@192.168.0.224` ✅ | Ops container; IaC in `vm-iac/opsbot-lxc/`. **Static IP** (gw 192.168.0.1) |
+| devbox-301 | LXC (vmid 301) | 192.168.0.62 (DHCP) | `ssh -J root@192.168.0.145 root@192.168.0.62` ✅ | Dev sandbox; IaC in `vm-iac/devbox/` |
+| gpu-desktop | Desktop (external) | 192.168.0.12 | `ssh <user>@192.168.0.12` | RTX 3090 24GB; ComfyUI + Nomad client; claudebot has no key there |
+| claudebot | LXC (vmid 300) | 192.168.0.222 | this container | |
 
-To reach NAS or Telegram VMs: proxy through evilbot (`-J root@192.168.1.145`). Claudebot's pubkey is already in `authorized_keys` on both.
+To reach NAS or Telegram VMs: proxy through evilbot (`-J root@192.168.0.145`). Claudebot's pubkey is already in `authorized_keys` on both.
 
 ## SSH Key
 
@@ -83,7 +87,7 @@ committing anything, apply these rules.
   commands grep for (only `.safety-denylist.example` is public)
 
 **Safe to commit as-is:**
-- LAN IPs (`192.168.1.x`) — RFC1918, not routable from the internet
+- LAN IPs (`192.168.0.x`) — RFC1918, not routable from the internet
 - SSH public keys — public by design
 - Config structure, scripts, and plans with secrets replaced by env var references
 - Architecture docs and plans
@@ -98,7 +102,7 @@ See `/root/.claude/plans/` for in-progress implementation plans.
 
 1. **IaC for Claude sandbox containers** — Terraform + Proxmox provider to clone and provision new claudebot-style LXC containers on evilbot — plan: `iac-lxc.md`
 2. **Documentation pass** ✅ — See `/root/docs/evilbot-nas.md` and `/root/docs/evilbot-telegram.md`
-3. **Jellyfin** ✅ — LXC vmid 400 at 192.168.1.196:8096; IaC in `vm-iac/jellyfin/`; docs in `docs/jellyfin.md`
+3. **Jellyfin** ✅ — LXC vmid 400 at 192.168.0.196:8096; IaC in `vm-iac/jellyfin/`; docs in `docs/jellyfin.md`
 4. **Remote Claude access** ✅ — SSH via jump host works for all VMs; see topology table above
 5. **GitHub sync** — Sync this repo to GitHub; portfolio-safe publishing — plan: `github-sync.md`
 6. **Proxmox host safety** — SSH hardening, host config as Ansible IaC, backups, staged change workflow — plan: `proxmox-host-safety.md`
@@ -108,23 +112,23 @@ See `/root/.claude/plans/` for in-progress implementation plans.
 
 ```bash
 # List containers/VMs
-ssh root@192.168.1.145 "pvesh get /nodes/evilbot/lxc"
-ssh root@192.168.1.145 "pvesh get /nodes/evilbot/qemu"
+ssh root@192.168.0.145 "pvesh get /nodes/evilbot/lxc"
+ssh root@192.168.0.145 "pvesh get /nodes/evilbot/qemu"
 
 # Start/stop a container
-ssh root@192.168.1.145 "pct start 300"
-ssh root@192.168.1.145 "pct stop 300"
+ssh root@192.168.0.145 "pct start 300"
+ssh root@192.168.0.145 "pct stop 300"
 
 # Execute command inside an LXC
-ssh root@192.168.1.145 "pct exec 300 -- bash -c 'hostname'"
+ssh root@192.168.0.145 "pct exec 300 -- bash -c 'hostname'"
 
 # Proxmox web UI
-https://192.168.1.145:8006
+https://192.168.0.145:8006
 ```
 
 ### Proxmox API Token Policy
 
-Prefer API tokens over `ssh root@192.168.1.145` for automation. Use the minimum scope needed:
+Prefer API tokens over `ssh root@192.168.0.145` for automation. Use the minimum scope needed:
 
 | Token purpose | Permissions to grant |
 |---|---|
@@ -143,6 +147,7 @@ Tokens are created at: Datacenter → Permissions → API Tokens in the web UI.
 
 ## Notes & Gotchas
 
+- **LAN is `192.168.0.0/24`, gateway `192.168.0.1`.** On a network/location move, DHCP guests re-address automatically, but the **static-IP containers (inferbot `.223`, opsbot `.224`)** and IP-hardcoding configs must be updated by hand: inferbot `/etc/nomad.d/server.hcl` + `/opt/inference-proxy/models.yaml` + `/etc/hosts`, the telegram bot's `/opt/evilbot/.env`, and gpu-desktop's Nomad client `servers`.
 - This container is **unprivileged** — no direct access to host devices or kernel modules. Tailscale requires TUN device; set `lxc.cgroup2.devices.allow = c 10:200 rwm` and `dev tun` in container config on evilbot if needed.
 - The NAS VM's torrent client watches `/tank/watch/*` — the actual watch folder path inside the VM may differ from the host path depending on how virtiofs mounts it.
 - evilbot-telegram (vmid 200) has no QEMU guest agent installed; its IP must be found via ARP or DHCP leases on the router.

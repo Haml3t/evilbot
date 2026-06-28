@@ -8,7 +8,7 @@ terraform {
 }
 
 provider "proxmox" {
-  endpoint  = "https://192.168.1.145:8006/"
+  endpoint  = "https://192.168.0.145:8006/"
   api_token = var.proxmox_api_token
   insecure  = true  # self-signed cert on evilbot
 }

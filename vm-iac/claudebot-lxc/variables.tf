@@ -15,7 +15,7 @@ variable "hostname" {
 }
 
 variable "ip_address" {
-  description = "IPv4 address in CIDR notation (e.g. '192.168.1.X/24') or 'dhcp'"
+  description = "IPv4 address in CIDR notation (e.g. '192.168.0.X/24') or 'dhcp'"
   type        = string
   default     = "dhcp"
 }

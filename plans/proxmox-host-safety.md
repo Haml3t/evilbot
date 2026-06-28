@@ -24,9 +24,9 @@ changes to the *host itself*.
 this container, so its blast radius should be explicitly bounded.
 
 **Goal:** claudebot can SSH to:
-- `192.168.1.145` (evilbot) — jump host only
-- `192.168.1.67` (evilbot-nas) via jump
-- `192.168.1.239` (evilbot-telegram) via jump
+- `192.168.0.145` (evilbot) — jump host only
+- `192.168.0.67` (evilbot-nas) via jump
+- `192.168.0.238` (evilbot-telegram) via jump
 
 And nowhere else.
 
@@ -43,7 +43,7 @@ enable: 1
 
 [RULES]
 # Allow outbound SSH only to the proxmox host (jump target)
-OUT ACCEPT -p tcp -d 192.168.1.145 --dport 22 -log nolog
+OUT ACCEPT -p tcp -d 192.168.0.145 --dport 22 -log nolog
 # Block all other outbound SSH
 OUT DROP -p tcp --dport 22 -log warning
 ```
@@ -51,7 +51,7 @@ OUT DROP -p tcp --dport 22 -log warning
 Apply: `pve-firewall update` or via web UI (Datacenter → 300 → Firewall).
 
 > Note: the NAS and Telegram VMs are reached *through* evilbot as a jump host, so
-> their traffic goes via 192.168.1.145 and is covered by the first rule.
+> their traffic goes via 192.168.0.145 and is covered by the first rule.
 
 ### Option B — nftables inside the container (defense in depth, secondary)
 
@@ -62,11 +62,11 @@ since root in the container can modify its own nftables rules.
 
 ```bash
 # From claudebot — should succeed
-ssh root@192.168.1.145 hostname
+ssh root@192.168.0.145 hostname
 
 # From claudebot — should be blocked/timeout
-ssh root@192.168.1.1   # router
-ssh root@192.168.1.100 # arbitrary LAN host
+ssh root@192.168.0.1   # router
+ssh root@192.168.0.100 # arbitrary LAN host
 ```
 
 ---

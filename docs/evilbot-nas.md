@@ -3,8 +3,8 @@
 
 # evilbot-nas
 
-**VM:** QEMU vmid 100 | Ubuntu 24.04 LTS | 192.168.1.67  
-**Access:** `ssh -J root@<proxmox-host> root@192.168.1.67`  
+**VM:** QEMU vmid 100 | Ubuntu 24.04 LTS | 192.168.0.67  
+**Access:** `ssh -J root@<proxmox-host> root@192.168.0.67`  
 **Role:** NAS — torrent downloads, media file server, Samba shares
 
 ---
@@ -38,7 +38,7 @@
 ### Transmission (BitTorrent)
 
 Daemon: `transmission-daemon.service`  
-Web UI: `http://192.168.1.67:9091/transmission/`  
+Web UI: `http://192.168.0.67:9091/transmission/`  
 RPC whitelist: `127.0.0.1`, `192.168.*.*`, `10.*.*.*`, `100.*.*.*` (Tailscale)  
 Credentials: in `/etc/transmission-remote.env` (not committed)
 

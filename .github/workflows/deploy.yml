@@ -29,7 +29,7 @@ jobs:
           echo "bot=$(echo "$files"      | grep -q '^telegram-bot/'       && echo true || echo false)" >> "$GITHUB_OUTPUT"
           echo "image_api=$(echo "$files"| grep -q '^inference/image-api/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
-  # inference/proxy → inferbot (192.168.1.223)
+  # inference/proxy → inferbot (192.168.0.223)
   deploy-proxy:
     name: inference-proxy → inferbot
     needs: changes
@@ -43,7 +43,7 @@ jobs:
           ssh root@inferbot systemctl restart inference-proxy
           ssh root@inferbot systemctl is-active inference-proxy
 
-  # telegram-bot → evilbot-telegram (192.168.1.238 via jump 192.168.1.145)
+  # telegram-bot → evilbot-telegram (192.168.0.238 via jump 192.168.0.145)
   deploy-bot:
     name: telegram-bot → evilbot-telegram
     needs: changes
@@ -57,7 +57,7 @@ jobs:
           ssh -J evilbot root@evilbot-telegram systemctl restart evilbot
           ssh -J evilbot root@evilbot-telegram systemctl is-active evilbot
 
-  # inference/image-api → gpu-desktop (192.168.1.12 via jump 192.168.1.145)
+  # inference/image-api → gpu-desktop (192.168.0.12 via jump 192.168.0.145)
   deploy-image-api:
     name: image-api → gpu-desktop
     needs: changes

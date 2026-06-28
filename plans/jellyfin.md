@@ -20,7 +20,7 @@ Use the existing `vm-iac/claudebot-lxc` Terraform config with a new tfvars.
 
 **Suggested vmid:** 400  
 **Hostname:** `jellyfin`  
-**IP:** Static preferred (e.g. `192.168.1.100/24`) so the Android app always finds it.
+**IP:** Static preferred (e.g. `192.168.0.100/24`) so the Android app always finds it.
 Static IP requires either a DHCP reservation on your router (by MAC) or setting it in the
 LXC config. DHCP reservation is easier — set it after first boot once you have the MAC.
 
@@ -56,7 +56,7 @@ terraform -chdir=vm-iac/claudebot-lxc apply -var-file=jellyfin.tfvars
 
 SSH into the new container:
 ```bash
-ssh -J root@192.168.1.145 root@<jellyfin-ip>
+ssh -J root@192.168.0.145 root@<jellyfin-ip>
 ```
 
 Install Jellyfin from the official Debian repo:
@@ -85,7 +85,7 @@ Stop the container first.
 
 ### Option A — pct set (simplest)
 ```bash
-ssh root@192.168.1.145
+ssh root@192.168.0.145
 pct stop 400
 pct set 400 -mp0 /tank/media,mp=/media,ro=1
 pct start 400
@@ -122,7 +122,7 @@ After mounting, configure Jellyfin libraries to use `/media`:
 
 ### Connect on local network
 1. Open the app → "Add Server"
-2. Enter: `http://192.168.1.<jellyfin-ip>:8096`
+2. Enter: `http://192.168.0.<jellyfin-ip>:8096`
 3. Log in with the account created during web UI setup
 
 The app will also auto-discover Jellyfin servers on the local network via mDNS — it may

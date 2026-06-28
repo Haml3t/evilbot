@@ -19,8 +19,8 @@ comes up identical.
 
 ```bash
 # From claudebot:
-scp devbox-secrets.env.example root@192.168.1.145:/root/.secrets/devbox.env
-ssh root@192.168.1.145 "vi /root/.secrets/devbox.env"
+scp devbox-secrets.env.example root@192.168.0.145:/root/.secrets/devbox.env
+ssh root@192.168.0.145 "vi /root/.secrets/devbox.env"
 ```
 
 Fill in:

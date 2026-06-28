@@ -5,7 +5,7 @@
 set -euo pipefail
 
 VM_IP="${1:?Usage: $0 <vm-ip>}"
-JUMP="root@192.168.1.145"
+JUMP="root@192.168.0.145"
 BOT_SRC="$(dirname "$0")/../../telegram-bot"
 
 echo "==> Provisioning evilbot-telegram at $VM_IP"

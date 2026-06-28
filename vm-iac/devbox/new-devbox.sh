@@ -10,7 +10,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-EVILBOT="root@192.168.1.145"
+EVILBOT="root@192.168.0.145"
 SECRETS="/root/.secrets/proxmox-tokens.env"
 
 # ── Load Proxmox token ────────────────────────────────────────────────────────

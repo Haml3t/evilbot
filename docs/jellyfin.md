@@ -3,16 +3,16 @@
 
 # Jellyfin
 
-**VM:** LXC vmid 400 | Debian 12 | 192.168.1.196 (DHCP — set a router reservation for MAC `BC:24:11:65:5E:40`)
-**Access:** `ssh -J root@192.168.1.145 root@192.168.1.196`
+**VM:** LXC vmid 400 | Debian 12 | 192.168.0.196 (DHCP — set a router reservation for MAC `BC:24:11:65:5E:40`)
+**Access:** `ssh -J root@192.168.0.145 root@192.168.0.196`
 **Role:** Media server — streams from `/tank/media`
 
 ---
 
 ## Service
 
-- **Web UI / API:** `http://192.168.1.196:8096`
-- **HTTPS:** `https://192.168.1.196:8920` (self-signed cert)
+- **Web UI / API:** `http://192.168.0.196:8096`
+- **HTTPS:** `https://192.168.0.196:8920` (self-signed cert)
 - Installed via official Jellyfin Debian repo (`repo.jellyfin.org`)
 - Version: Jellyfin 10.11.8
 - Runs as: `jellyfin` system user
@@ -35,7 +35,7 @@ Libraries configured in Jellyfin:
 
 The container is unprivileged — `/tank/media` must be world-readable on evilbot:
 ```bash
-ssh root@192.168.1.145 "chmod -R o+rX /tank/media"
+ssh root@192.168.0.145 "chmod -R o+rX /tank/media"
 ```
 Re-run this if new content is added and Jellyfin can't read it.
 
@@ -44,7 +44,7 @@ Re-run this if new content is added and Jellyfin can't read it.
 ## Android Client
 
 1. Install **Jellyfin** from the Play Store
-2. Open → Add Server → `http://192.168.1.196:8096`
+2. Open → Add Server → `http://192.168.0.196:8096`
 3. The app may auto-discover on local network via mDNS
 
 Must be on home WiFi for local access. Remote access requires Tailscale (not yet configured).
@@ -61,13 +61,13 @@ cp terraform.tfvars.example terraform.tfvars  # fill in token + SSH key
 terraform init && terraform apply
 
 # After apply, get the new IP:
-ssh root@192.168.1.145 "pct exec 400 -- ip -4 addr show eth0"
+ssh root@192.168.0.145 "pct exec 400 -- ip -4 addr show eth0"
 
 # Install Jellyfin:
 ./provision.sh <new-ip>
 
 # Make media readable:
-ssh root@192.168.1.145 "chmod -R o+rX /tank/media"
+ssh root@192.168.0.145 "chmod -R o+rX /tank/media"
 ```
 
 Then complete the first-run wizard at `http://<ip>:8096`.
@@ -79,7 +79,7 @@ Then complete the first-run wizard at `http://<ip>:8096`.
 - **Password reset:** Jellyfin's UI-based reset writes a PIN file to the server filesystem.
   If locked out, reset directly via SQLite:
   ```bash
-  ssh -J root@192.168.1.145 root@192.168.1.196
+  ssh -J root@192.168.0.145 root@192.168.0.196
   systemctl stop jellyfin
   python3 /tmp/reset.py  # see below
   systemctl start jellyfin

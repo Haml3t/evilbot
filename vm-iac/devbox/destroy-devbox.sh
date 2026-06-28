@@ -5,7 +5,7 @@ set -euo pipefail
 
 VMID="${1:?Usage: $0 <vmid>}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-EVILBOT="root@192.168.1.145"
+EVILBOT="root@192.168.0.145"
 SECRETS="/root/.secrets/proxmox-tokens.env"
 STATE="$SCRIPT_DIR/terraform-$VMID.tfstate"
 

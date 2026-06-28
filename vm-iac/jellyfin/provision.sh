@@ -5,7 +5,7 @@
 set -euo pipefail
 
 JELLYFIN_IP="${1:?Usage: $0 <container-ip>}"
-JUMP="root@192.168.1.145"
+JUMP="root@192.168.0.145"
 
 ssh -J "$JUMP" "root@$JELLYFIN_IP" bash << 'EOF'
 set -euo pipefail
@@ -26,12 +26,12 @@ systemctl enable --now jellyfin
 
 echo "--- Making /tank/media world-readable for unprivileged LXC ---"
 # Note: run this on the Proxmox host (evilbot), not in the container:
-#   ssh root@192.168.1.145 "chmod -R o+rX /tank/media"
+#   ssh root@192.168.0.145 "chmod -R o+rX /tank/media"
 
 echo ""
 echo "Jellyfin installed and running."
 echo "Web UI: http://$JELLYFIN_IP:8096"
 echo ""
 echo "IMPORTANT: Run on evilbot to allow media access:"
-echo "  ssh root@192.168.1.145 \"chmod -R o+rX /tank/media\""
+echo "  ssh root@192.168.0.145 \"chmod -R o+rX /tank/media\""
 EOF

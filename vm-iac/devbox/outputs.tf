@@ -10,5 +10,5 @@ output "hostname" {
 
 output "ssh_command" {
   description = "SSH command to connect (IP assigned by DHCP — run provision.sh to discover it)"
-  value       = "ssh -J root@192.168.1.145 root@<devbox-ip>"
+  value       = "ssh -J root@192.168.0.145 root@<devbox-ip>"
 }
