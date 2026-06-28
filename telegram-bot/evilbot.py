@@ -421,12 +421,25 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/showsongtitles — list all song titles\n"
         "/randomsongtitle — random song title\n"
         "/hello — 😈\n"
+        "/whybew — We Hate You by Electric Wizard\n"
         "/help — this message"
     )
 
 
 async def hello(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("😈")
+
+
+# "We Hate You" by Electric Wizard — Telegram renders a rich preview card
+# (album art + play button) for the Spotify track URL on its own.
+WHYBEW_URL = "https://open.spotify.com/track/1RrgPMuFinnePF4P7ynAfh"
+
+
+async def whybew(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(
+        WHYBEW_URL,
+        disable_web_page_preview=False,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -441,6 +454,7 @@ async def set_bot_commands(app: Application) -> None:
         BotCommand("showsongtitles", "List all submitted song titles"),
         BotCommand("randomsongtitle","Show a random song title suggestion"),
         BotCommand("hello",          "😈"),
+        BotCommand("whybew",         "We Hate You by Electric Wizard"),
         BotCommand("help",           "Show help"),
     ])
 
@@ -460,6 +474,7 @@ def main():
     application.add_handler(CommandHandler("randomsongtitle",randomsongtitle))
     application.add_handler(CommandHandler("help",           help_command))
     application.add_handler(CommandHandler("hello",          hello))
+    application.add_handler(CommandHandler("whybew",         whybew))
 
     application.run_polling()
 
