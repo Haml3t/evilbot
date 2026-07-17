@@ -1,0 +1,9 @@
+# Add to opsbot's /root/.ssh/authorized_keys — a locked-down forced-command entry.
+# evilbot's heartbeat key can ONLY run record-heartbeat.sh (no shell, no forwarding);
+# it cannot run arbitrary commands even though it authenticates as root.
+#
+# Generate the key on evilbot:
+#   ssh-keygen -t ed25519 -N "" -f /root/.ssh/id_ed25519_hbopsbot -C "evilbot-heartbeat-to-opsbot"
+# Then paste its PUBLIC key below in place of the placeholder.
+
+command="/usr/local/bin/record-heartbeat.sh",no-pty,no-port-forwarding,no-agent-forwarding,no-X11-forwarding ssh-ed25519 <EVILBOT_HEARTBEAT_PUBKEY> evilbot-heartbeat-to-opsbot

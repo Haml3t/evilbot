@@ -1,0 +1,6 @@
+[Unit]
+Description=Telegram alert that %i failed to run
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/notify-telegram.sh "🚨 systemd unit '%i' FAILED to run on evilbot — a monitoring/health job did not complete. Inspect: journalctl -u %i -n 50 --no-pager"

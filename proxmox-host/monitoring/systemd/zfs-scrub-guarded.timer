@@ -1,0 +1,10 @@
+[Unit]
+Description=Monthly guarded ZFS scrub of tank
+
+[Timer]
+OnCalendar=*-*-01 05:00:00
+Persistent=true
+RandomizedDelaySec=900
+
+[Install]
+WantedBy=timers.target

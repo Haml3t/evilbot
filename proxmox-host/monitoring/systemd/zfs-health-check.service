@@ -1,0 +1,8 @@
+[Unit]
+Description=Daily ZFS pool + SMART health check with Telegram alerting
+After=zfs.target
+OnFailure=alert-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/zfs-health-check.sh

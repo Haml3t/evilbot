@@ -1,0 +1,7 @@
+[Unit]
+Description=Daily evilbot host health check (guests running + failed units) with Telegram alerting
+OnFailure=alert-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/host-health-check.sh

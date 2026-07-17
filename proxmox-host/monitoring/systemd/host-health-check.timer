@@ -1,0 +1,10 @@
+[Unit]
+Description=Run evilbot host health check daily
+
+[Timer]
+OnCalendar=*-*-* 09:15:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

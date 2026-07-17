@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly storage-monitoring proof-of-life
+
+[Timer]
+OnCalendar=Sun *-*-* 09:07:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

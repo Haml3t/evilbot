@@ -1,0 +1,13 @@
+# Append these options to the DEVICESCAN line in /etc/smartd.conf so smartd runs
+# scheduled self-tests and temperature alerts. -M exec smartd-runner keeps the stock
+# email path (run.d/10mail) working; drop 20telegram into /etc/smartmontools/run.d/
+# to also fan out to Telegram.
+#
+#   -s (S/../../3/03|L/../01/./04)   short test Wed 03:00, long surface scan 1st @ 04:00
+#   -W 4,48,55                       temp: report on +4°C change, info at 48°C, critical at 55°C
+#
+# Full line as deployed on evilbot:
+
+DEVICESCAN -d removable -n standby -m root -M exec /usr/share/smartmontools/smartd-runner -s (S/../../3/03|L/../01/./04) -W 4,48,55
+
+# Validate before restart:  smartd -q onecheck -c /etc/smartd.conf

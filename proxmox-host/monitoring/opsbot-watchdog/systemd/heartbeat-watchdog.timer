@@ -1,0 +1,9 @@
+[Unit]
+Description=Run the evilbot dead-man's-switch watchdog every 15 min
+
+[Timer]
+OnCalendar=*:5/15
+Persistent=false
+
+[Install]
+WantedBy=timers.target

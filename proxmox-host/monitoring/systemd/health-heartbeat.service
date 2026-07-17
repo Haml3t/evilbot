@@ -1,0 +1,7 @@
+[Unit]
+Description=Weekly storage-monitoring proof-of-life to Telegram
+After=zfs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/health-heartbeat.sh

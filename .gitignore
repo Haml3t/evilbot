@@ -37,6 +37,10 @@ env/
 **/vault.yml
 **/.secrets/
 
+# Telegram alerting creds (real file is root-only on the hosts; only .example is public)
+**/zfs-alert.env
+!**/zfs-alert.env.example
+
 # Ansible backups/artifacts
 ansible/backups/
 

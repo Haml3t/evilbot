@@ -1,0 +1,8 @@
+[Unit]
+Description=Guarded monthly ZFS scrub of tank (skips while degraded/resilvering)
+After=zfs.target
+OnFailure=alert-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/zfs-scrub-guarded.sh tank

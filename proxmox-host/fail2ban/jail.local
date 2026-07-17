@@ -1,0 +1,13 @@
+[DEFAULT]
+# evilbot is journald-only (no rsyslog / no /var/log/auth.log), so fail2ban must
+# read from the systemd journal instead of a log file. Without this the sshd jail
+# fails to start (status=255, "Have not found any log file for sshd jail").
+backend = systemd
+allowipv6 = auto
+
+[sshd]
+enabled = true
+# Debian logs sshd under ssh.service, but the stock filter.d/sshd.conf journalmatch
+# targets sshd.service — so this override is REQUIRED or fail2ban runs but matches
+# nothing. Verified with: fail2ban-regex --journalmatch "..." systemd-journal filter.d/sshd.conf
+journalmatch = _SYSTEMD_UNIT=ssh.service + _COMM=sshd

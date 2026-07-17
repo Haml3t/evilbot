@@ -1,0 +1,6 @@
+[Unit]
+Description=Push liveness heartbeat from evilbot to the opsbot watchdog
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/heartbeat-push.sh

@@ -1,0 +1,6 @@
+[Unit]
+Description=Off-host dead-man's switch — alert if evilbot stops checking in
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/heartbeat-watchdog.sh

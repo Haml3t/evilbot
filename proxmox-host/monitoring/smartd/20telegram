@@ -1,0 +1,17 @@
+#!/bin/bash
+# smartd run.d hook: forward SMART warnings to Telegram (runs after 10mail email).
+# smartd exports SMARTD_* env vars; $1 is the message file from smartd-runner.
+NOTIFY=/usr/local/bin/notify-telegram.sh
+[ -x "$NOTIFY" ] || exit 0
+
+body="${SMARTD_MESSAGE:-}"
+if [ -z "$body" ] && [ -n "${1:-}" ] && [ -r "$1" ]; then
+  body="$(cat "$1")"
+fi
+
+msg="$(printf '💽 SMART WARNING — %s %s\n%s\n%s' \
+  "${SMARTD_DEVICE:-device}" "${SMARTD_DEVICETYPE:+(${SMARTD_DEVICETYPE})}" \
+  "${SMARTD_FAILTYPE:-}" "${body}")"
+
+"$NOTIFY" "$msg"
+exit 0
