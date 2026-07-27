@@ -45,6 +45,10 @@ PATHS=(
   /etc/modprobe.d
   /etc/vzdump.conf
   /usr/local/bin
+  # custom units + drop-ins: monitoring timers/services and the PVE daemon
+  # Restart=on-failure hardening. Previously missing — these live only on the
+  # root fs, so the fast config tier rebuilt a host with no alerting at all.
+  /etc/systemd/system
 )
 EXISTING=(); for p in "${PATHS[@]}"; do [[ -e "$p" ]] && EXISTING+=("$p"); done
 
