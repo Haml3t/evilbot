@@ -131,6 +131,15 @@ hosts:
          curl -4 ifconfig.co/port/51413"
       - "Watch-folder paths inside the VM may differ from host /tank paths
          depending on the virtiofs mount."
+      - "virtiofs0 (dirid=tankshare) is NOT managed by Terraform — the provider
+         has no virtiofs support. After any recreate, reattach by hand:
+         qm set 100 --virtiofs0 dirid=tankshare,cache=auto
+         Without it the VM boots with no /tank and Transmission fails silently."
+      - "Terraform module DOES exist (vm-iac/evilbot-nas-iac/terraform/), contrary
+         to the original handoff's tf=0 claim. Hardened 2026-08-30: pinned MAC,
+         discard/ssd, ostype. Never add pool_id — ForceNew, would destroy the VM."
+      - "MAC is pinned to BC:24:11:54:3C:26 in the module. DHCP + no guest agent
+         means a regenerated MAC silently moves the IP off the documented .67."
 
   evilbot-telegram:
     kind: qemu

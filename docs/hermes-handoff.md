@@ -122,14 +122,32 @@ verification pass found all 39 archives intact, so it has not happened yet — t
 time, not a fix. Needs a reboot into memtest, so it needs a human and a maintenance window. Ask
 for one.
 
-### P1 — Write a Terraform module for evilbot-nas
+### P1 — Harden the evilbot-nas Terraform module
 
-`vm-iac/evilbot-nas-iac/` has Ansible and provision scripts but **`tf=0`** — no Terraform. It is
-the only guest that cannot be rebuilt from IaC, and it is the one that mounts `/tank`.
+**Corrected 2026-08-30 by the Hermes agent.** The claim below — that
+`vm-iac/evilbot-nas-iac/` has `tf=0` and no Terraform — was **wrong**. A working
+`terraform/` directory has existed there since commit `a8d907c`, with
+`main.tf`, `variables.tf` and `terraform.tfvars.example` targeting VM 100 via
+bpg/proxmox. The NAS is not un-IaC'd.
 
-This is the highest-leverage item you can do unaided, and it directly buys you authority: the
-`evilbot-nas` restriction in §2 exists *because* of this gap. Close it and the host earns Tier 2.
-Model it on `vm-iac/inferbot-lxc/`, but read the `pool_id` trap in §5 first.
+What was actually missing, found by diffing the module against the live VM
+through the read-only Proxmox API and now fixed:
+
+- **No `pool_id` warning.** inferbot and opsbot both carry one; this module,
+  guarding the least-rebuildable guest in the fleet, did not.
+- **Disk drift.** Live is `discard=on,ssd=1`; the module declared neither, so a
+  recreate would silently drop discard and let the 64G zvol grow monotonically
+  against a pool that already has a corruption warning.
+- **Unpinned MAC.** DHCP + no guest agent + a documented IP (192.168.0.67) means
+  a regenerated MAC changes the lease and invalidates the docs.
+- **Missing `ostype = l26`** and a deprecated `cdrom { enabled }` block.
+- **No `outputs.tf`**, so nothing surfaced the virtiofs post-apply step.
+
+`terraform validate` passes clean. Note the module still cannot be `plan`ned
+against the live host from hermesbot: that needs the `terraform-lxc@pve!lxc`
+token, which lives in the secrets vault that does not exist yet (below). Until
+someone runs `terraform plan` with real credentials, this module is
+**verified-by-inspection only** — treat a first apply as untested.
 
 ### P1 — Build the secrets vault
 
