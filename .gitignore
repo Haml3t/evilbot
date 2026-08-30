@@ -53,3 +53,14 @@ ansible/backups/
 # Editor/OS noise
 .DS_Store
 *.swp
+
+# Terraform saved plan files — these EMBED variable values, including the
+# Proxmox API token, so they are as sensitive as tfvars. Added 2026-08-29.
+tfplan
+*.tfplan
+**/tfplan
+
+# Backups/variants of tfvars. The `**/*.tfvars` rule above only matches names
+# ENDING in .tfvars, so `terraform.tfvars.bak-2026-08-29` slipped through.
+**/*.tfvars.*
+!**/*.tfvars.example

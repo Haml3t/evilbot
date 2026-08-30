@@ -10,6 +10,18 @@ This is **claudebot** — an unprivileged Debian 12 LXC container (vmid 300) run
 
 ## Host & VM Topology
 
+> **Machine-readable source of truth: [`fleet/inventory.yaml`](fleet/inventory.yaml).**
+> The table below is the prose view. Scripts and cron jobs must read the YAML, which also
+> carries a per-host `traps` key recording failure modes that cost real time to discover.
+> If the two ever disagree, update the YAML first, then this table.
+>
+> **Agent handoff:** [`docs/hermes-handoff.md`](docs/hermes-handoff.md) — access model,
+> prioritised work queue, and landmines, written for the Hermes agent on LXC 700.
+>
+> **The `-J root@192.168.0.145` bounce below is a convention, not a requirement.**
+> Verified 2026-08-30: this is a flat `/24` with no segmentation, and every guest is
+> directly reachable from every other. Do not treat the bounce as a security boundary.
+
 | Name | Type | IP | Access | Notes |
 |---|---|---|---|---|
 | evilbot | Proxmox host | 192.168.0.145 | `ssh root@192.168.0.145` ✅ | 22TB ZFS pool `tank` |
@@ -20,9 +32,10 @@ This is **claudebot** — an unprivileged Debian 12 LXC container (vmid 300) run
 | opsbot | LXC (vmid 600) | 192.168.0.224 | `ssh -J root@192.168.0.145 root@192.168.0.224` ✅ | Ops container; IaC in `vm-iac/opsbot-lxc/`. **Static IP** (gw 192.168.0.1) |
 | devbox-301 | LXC (vmid 301) | 192.168.0.62 (DHCP) | `ssh -J root@192.168.0.145 root@192.168.0.62` ✅ | Dev sandbox; IaC in `vm-iac/devbox/` |
 | gpu-desktop | Desktop (external) | 192.168.0.12 | `ssh <user>@192.168.0.12` | RTX 3090 24GB; ComfyUI + Nomad client; claudebot has no key there |
+| hermesbot | LXC (vmid 700) | 192.168.0.225 | `ssh -J root@192.168.0.145 root@192.168.0.225` ✅ | Hermes Agent — homelab ops agent (gateway + cron); IaC in `vm-iac/hermesbot-lxc/`. **Static IP** (gw 192.168.0.1) |
 | claudebot | LXC (vmid 300) | 192.168.0.222 | this container | |
 
-To reach NAS or Telegram VMs: proxy through evilbot (`-J root@192.168.0.145`). Claudebot's pubkey is already in `authorized_keys` on both.
+To reach NAS or Telegram VMs: `-J root@192.168.0.145` works and is the convention used throughout these docs, but is **not required** — the LAN is flat and both are directly reachable. Claudebot's pubkey is in `authorized_keys` on both; evilbot's root key was added 2026-08-30, so the hypervisor no longer depends on claudebot for access to its own guests.
 
 ## SSH Key
 
@@ -98,15 +111,17 @@ See `/root/.claude/plans/github-sync.md` for the project-internal publishing pla
 
 ## Active Projects
 
-See `/root/.claude/plans/` for in-progress implementation plans.
+See [`plans/`](plans/) for in-progress implementation plans.
 
 1. **IaC for Claude sandbox containers** — Terraform + Proxmox provider to clone and provision new claudebot-style LXC containers on evilbot — plan: `iac-lxc.md`
 2. **Documentation pass** ✅ — See `/root/docs/evilbot-nas.md` and `/root/docs/evilbot-telegram.md`
 3. **Jellyfin** ✅ — LXC vmid 400 at 192.168.0.196:8096; IaC in `vm-iac/jellyfin/`; docs in `docs/jellyfin.md`
-4. **Remote Claude access** ✅ — SSH via jump host works for all VMs; see topology table above
+4. **Remote Claude access** ✅ — SSH works for all VMs, with or without the evilbot bounce; see topology table above
 5. **GitHub sync** — Sync this repo to GitHub; portfolio-safe publishing — plan: `github-sync.md`
 6. **Proxmox host safety** — SSH hardening, host config as Ansible IaC, backups, staged change workflow — plan: `proxmox-host-safety.md`
 7. **IaC verification & automated testing** — audit IaC completeness, backup/restore verification, BATS functional tests per service, GitHub Actions CI on self-hosted runner — plan: `infra-testing.md`
+8. **Distributed GPU inference cluster** — Nomad-orchestrated ComfyUI + Ollama across evilbot (RTX 3070 8GB) and an external RTX 3090 workstation; inferbot LXC as Nomad server + routing proxy — IaC: `vm-iac/inferbot-lxc/`, configs: `inference/`
+9. **Hermes ops agent** — always-on homelab operations agent on hermesbot (LXC 700). Layers 1–4 live as of 2026-08-30: repo knowledge, `fleet/inventory.yaml`, least-privilege fleet identity, and tiered write authority — plan: `plans/hermes-agent.md`, handoff: `docs/hermes-handoff.md`
 
 ## Working with evilbot Proxmox
 
@@ -147,7 +162,8 @@ Tokens are created at: Datacenter → Permissions → API Tokens in the web UI.
 
 ## Notes & Gotchas
 
-- **LAN is `192.168.0.0/24`, gateway `192.168.0.1`.** On a network/location move, DHCP guests re-address automatically, but the **static-IP containers (inferbot `.223`, opsbot `.224`)** and IP-hardcoding configs must be updated by hand: inferbot `/etc/nomad.d/server.hcl` + `/opt/inference-proxy/models.yaml` + `/etc/hosts`, the telegram bot's `/opt/evilbot/.env`, and gpu-desktop's Nomad client `servers`.
+- **LAN is `192.168.0.0/24`, gateway `192.168.0.1`.** On a network/location move, DHCP guests re-address automatically, but the **static-IP containers (inferbot `.223`, opsbot `.224`, hermesbot `.225`)** and IP-hardcoding configs must be updated by hand: inferbot `/etc/nomad.d/server.hcl` + `/opt/inference-proxy/models.yaml` + `/etc/hosts`, the telegram bot's `/opt/evilbot/.env`, and gpu-desktop's Nomad client `servers`.
+- **`systemd-logind` adds 25s to every login in unprivileged LXCs.** It fails `226/NAMESPACE`, and `pam_systemd` then waits out a D-Bus activation timeout on each login. Measured 2026-08-29: **25.43s before, 0.42s after**. Fix is `systemctl mask --now systemd-logind`; applied to hermesbot (700), inferbot (500) and opsbot (600) on 2026-08-30. **Every new unprivileged LXC needs it** — it is in `vm-iac/hermesbot-lxc/provision.sh`. A masked unit still reports `is-active: failed` from the earlier crash; that is residual state, not a failure.
 - This container is **unprivileged** — no direct access to host devices or kernel modules. Tailscale requires TUN device; set `lxc.cgroup2.devices.allow = c 10:200 rwm` and `dev tun` in container config on evilbot if needed.
 - The NAS VM's torrent client watches `/tank/watch/*` — the actual watch folder path inside the VM may differ from the host path depending on how virtiofs mounts it.
 - evilbot-telegram (vmid 200) has no QEMU guest agent installed; its IP must be found via ARP or DHCP leases on the router.

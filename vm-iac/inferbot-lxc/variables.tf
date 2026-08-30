@@ -55,3 +55,24 @@ variable "ssh_public_key" {
   description = "SSH public key to inject into root's authorized_keys"
   type        = string
 }
+
+# Declared but intentionally UNREFERENCED — see the pool_id comment block in main.tf.
+# CT 500 is not currently in the claudebots pool, and pool_id is ForceNew, so wiring
+# this up before moving the container into the pool would destroy it.
+variable "pool_id" {
+  description = "Proxmox pool the container should belong to. Not yet wired into main.tf — see the pool_id note there before using."
+  type        = string
+  default     = "claudebots"
+}
+
+variable "dns_domain" {
+  description = "Search domain for the container (matches the live hand-set value)"
+  type        = string
+  default     = "local"
+}
+
+variable "dns_servers" {
+  description = "DNS servers for the container (matches the live hand-set values)"
+  type        = list(string)
+  default     = ["8.8.8.8", "1.1.1.1"]
+}

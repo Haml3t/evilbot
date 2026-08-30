@@ -1,0 +1,314 @@
+# Fleet inventory — single source of truth for homelab topology.
+#
+# PURPOSE
+#   Machine-readable companion to the topology table in CLAUDE.md. Prose is for
+#   agents reading context; this file is for cron jobs, health checks, and any
+#   script that needs to iterate hosts. When the two disagree, THIS FILE WINS —
+#   update it first, then the table.
+#
+# PUBLIC REPO. LAN IPs (192.168.0.0/24, RFC1918) and SSH public keys are safe
+# here by policy. Never add: passwords, API token secrets, Tailscale auth keys
+# or the real tailnet name, or anything from a *.tfvars / .env file.
+#
+# The `traps` key on a host is load-bearing. It records failure modes that cost
+# real time to discover. Read them before acting on that host.
+
+schema_version: 1
+updated: 2026-08-30
+
+network:
+  subnet: 192.168.0.0/24
+  gateway: 192.168.0.1
+  # Migrated from 192.168.1.0/24 on 2026-06-18 (new router/location).
+  # Most guests are DHCP and moved automatically. On any future move, these
+  # need MANUAL updates — see docs and CLAUDE.md "Notes & Gotchas".
+  migration_checklist:
+    static_ip_hosts: [inferbot, opsbot, hermesbot]
+    also_update:
+      - "evilbot Tailscale subnet route (advertise + APPROVE in admin console + accept-routes on clients)"
+      - "external GPU workstation's Nomad client config"
+      - "evilbot-telegram /opt/evilbot/.env"
+  dhcp_reservations: [evilbot]
+
+# Agent service account. Provisioned 2026-08-30 on evilbot and CTs 301/400/500/600
+# and VMs 100/200. Deliberately absent from CT 300 (claudebot is a workspace, not
+# infrastructure), CT 700 (the agent's own host), and all personal machines.
+agent_access:
+  user: hermes
+  key_comment: hermesbot-fleet-ro
+  properties: [unprivileged, password-locked, pubkey-only, no-sudo]
+  layer: 3            # verification only — can read the fleet, cannot change it
+  client_config: /home/hermes/.ssh/config on hermesbot (host aliases + ProxyJump)
+  verified: "2026-08-30 — all 7 hosts reachable; sudo refused (password locked)"
+  escalation: |
+    Layer 4 (write authority) is granted per target via /etc/sudoers.d/hermes,
+    managed from fleet/grant-hermes-sudo.sh. NEVER by adding hermes to the sudo
+    group. Authority tracks REBUILDABILITY, not trust: a host that rebuilds from
+    vm-iac/ can be handed root because a mistake there is a rebuild.
+  write_authority:
+    granted: 2026-08-30
+    tier_1_2: [devbox-301, jellyfin, inferbot, opsbot]   # NOPASSWD: ALL
+    tier_3_4: [evilbot-nas, evilbot-telegram, evilbot]   # read-only; scoped list TBD
+    audit:
+      command_log: /var/log/sudo-hermes.log
+      io_replay: /var/log/sudo-io/hermes/
+      journald: "journalctl -t sudo"
+      note: |
+        rsyslog is inactive on evilbot/jellyfin/inferbot/opsbot, so journald plus
+        the sudo I/O log IS the entire audit trail. Do not disable either.
+    verified: "2026-08-30 — uid=0 on all four Tier 1/2; 'a password is required' on all Tier 3/4"
+  proxmox_token:
+    user: hermes-ro@pve
+    token: ro
+    privsep: true
+    role: PVEAuditor
+    granted_on: /
+    credentials: /home/hermes/.hermes/proxmox-ro.env   # mode 600, hermes-owned
+    privileges: [Datastore.Audit, Mapping.Audit, Pool.Audit, SDN.Audit, Sys.Audit, VM.Audit]
+    note: |
+      privsep=1 means effective rights are the INTERSECTION of the user ACL and the
+      token ACL. Both grants are required; with only the user grant the token has no
+      permissions at all. `pveum acl modify` takes --roles (plural), and the token id
+      contains '!' so it must be single-quoted at every layer.
+
+defaults:
+  ssh_user: root
+  jump_host: evilbot
+  # IMPORTANT, verified 2026-08-30: the jump is a CONVENTION, not a requirement.
+  # This is a flat 192.168.0.0/24 with no segmentation between guests — every host
+  # here is directly reachable from every other. Prose elsewhere describes the
+  # evilbot bounce as "the" access path, which reads as isolation that does not
+  # exist. Treat any guest as reachable from any other when reasoning about blast
+  # radius, and do not rely on the bounce as a security boundary.
+  network_segmentation: none
+
+hosts:
+
+  evilbot:
+    kind: proxmox-host
+    role: hypervisor
+    ip: 192.168.0.145
+    ssh: { user: root, direct: true }
+    hardware:
+      cores: 6
+      memory_gb: 47
+      gpu: "NVIDIA RTX 3070 8GB"
+      ram_type: non-ecc          # see traps
+    storage:
+      zfs_pool: tank
+      raw_capacity_tb: 22
+      layout: raidz1
+    services: [proxmox-ve, comfyui, nomad-agent, zed, smartd, restic-offsite]
+    web_ui: "https://192.168.0.145:8006"
+    traps:
+      - "NON-ECC RAM, mismatched sticks. Silently corrupted a ZFS block 2026-08-01.
+         Equal CKSUM counts across ALL raidz1 children = RAM, not disk. ZFS cannot
+         repair it. memtest86+ still PENDING."
+      - "NVIDIA driver dies on every kernel upgrade unless proxmox-headers-6.8 is
+         installed. Ollama then silently falls back to CPU. Rebuild DKMS without
+         rebooting."
+      - "Tailnet subnet router. A re-advertised route is NOT auto-approved; the
+         stale approval also persists. Missing this broke tailnet LAN access for
+         ~7 weeks in 2026."
+      - "Never issue a Proxmox token combining Sys.PowerMgmt + Datastore.Allocate
+         + VM.Config.Disk. That combination can irreversibly destroy storage."
+
+  evilbot-nas:
+    kind: qemu
+    vmid: 100
+    role: nas
+    ip: 192.168.0.67
+    addressing: dhcp
+    ssh: { user: root, via: evilbot }
+    services: [transmission-daemon, transmission-watch, nfs]
+    mounts:
+      - { source: "evilbot:/tank", type: virtiofs }
+    docs: docs/evilbot-nas.md
+    traps:
+      - "custom transmission-watch.service maps /tank/watch/<category> to download
+         dirs. It MUST be restarted after any transmission-daemon restart."
+      - "transmission --port-test lies via IPv6. Verify with
+         curl -4 ifconfig.co/port/51413"
+      - "Watch-folder paths inside the VM may differ from host /tank paths
+         depending on the virtiofs mount."
+
+  evilbot-telegram:
+    kind: qemu
+    vmid: 200
+    role: bot
+    ip: 192.168.0.238
+    addressing: dhcp
+    ssh: { user: root, via: evilbot }
+    services: [evilbot-telegram]
+    depends_on: [inferbot]
+    docs: docs/evilbot-telegram.md
+    traps:
+      - "No QEMU guest agent installed — IP must be found via ARP or router DHCP
+         leases, not via Proxmox."
+      - "Secrets live in /opt/evilbot/.env on the VM (TELEGRAM_BOT_TOKEN). Never
+         copy that file into this repo."
+
+  claudebot:
+    kind: lxc
+    vmid: 300
+    role: ai-workspace
+    ip: 192.168.0.222
+    addressing: dhcp
+    unprivileged: true
+    ssh: { user: root, via: evilbot }
+    production: false
+    policy:
+      - "NOT infrastructure. Never run production daemons, CI runners, monitors,
+         or deploy crons here. Workspace only."
+
+  devbox-301:
+    kind: lxc
+    vmid: 301
+    role: dev-sandbox
+    ip: 192.168.0.62
+    addressing: dhcp
+    unprivileged: true
+    ssh: { user: root, via: evilbot }
+    iac: vm-iac/devbox/
+
+  jellyfin:
+    kind: lxc
+    vmid: 400
+    role: media-server
+    ip: 192.168.0.196
+    addressing: dhcp
+    unprivileged: true
+    ssh: { user: root, via: evilbot }
+    services: [jellyfin]
+    endpoints:
+      http: "http://192.168.0.196:8096"
+    mounts:
+      - { source: "/tank/media", target: /media, type: bind }
+    iac: vm-iac/jellyfin/
+    docs: docs/jellyfin.md
+
+  inferbot:
+    kind: lxc
+    vmid: 500
+    role: inference-proxy
+    ip: 192.168.0.223
+    addressing: static
+    gateway: 192.168.0.1
+    unprivileged: true
+    ssh: { user: root, via: evilbot }
+    services: [nomad-server, inference-proxy]
+    endpoints:
+      http: "http://192.168.0.223:8000"
+    iac: vm-iac/inferbot-lxc/
+    traps:
+      - "STATIC IP — does not survive a subnet migration. Hand-reconfigure."
+      - "Firewalled HTTP-only."
+      - "pool_id is ForceNew in the bpg/proxmox provider. Adding it to this
+         module's main.tf plans a DESTROY of the running container. Do not."
+      - "systemd-logind masked 2026-08-30 (was adding 25s to every login)."
+
+  opsbot:
+    kind: lxc
+    vmid: 600
+    role: ops
+    ip: 192.168.0.224
+    addressing: static
+    gateway: 192.168.0.1
+    unprivileged: true
+    ssh: { user: root, via: evilbot }
+    iac: vm-iac/opsbot-lxc/
+    traps:
+      - "STATIC IP — does not survive a subnet migration."
+      - "pool_id is ForceNew — see inferbot."
+      - "systemd-logind masked 2026-08-30."
+
+  hermesbot:
+    kind: lxc
+    vmid: 700
+    role: agent
+    ip: 192.168.0.225
+    addressing: static
+    gateway: 192.168.0.1
+    unprivileged: true
+    ssh: { user: root, via: evilbot }
+    resources: { cores: 4, memory_mb: 8192, disk_gb: 40 }
+    services: [hermes-agent]
+    service_account: hermes      # non-root, no sudo
+    iac: vm-iac/hermesbot-lxc/
+    plan: plans/hermes-agent.md
+    traps:
+      - "STATIC IP — does not survive a subnet migration."
+      - "Runs as unprivileged user `hermes` with NO sudo. Deliberate."
+      - "Node 26 needs libatomic1; node-pty needs build-essential. Missing either
+         makes the vendor installer fail with a misleading message."
+
+  # --- External / personal machines -------------------------------------
+  # DELIBERATELY NOT ENUMERATED HERE. This repo is public and documents
+  # infrastructure only; the operator's personal desktop and laptops are not
+  # infrastructure. Their hostnames, login user, and access rules live in the
+  # local-only vault (see plans/hermes-agent.md, Phase 3a), matching the
+  # <offsite-host>/<offsite-user> convention already used by
+  # proxmox-host/backup/host-offsite-sync.sh.
+  #
+  # What IS operationally relevant, without identifying anything:
+  #   - one external GPU workstation runs a Nomad client and ComfyUI, and is
+  #     the off-host backup target for the nightly rsync leg;
+  #   - all external machines are reachable ONLY via the evilbot bounce;
+  #   - two of the three are access-gated and require `sshgate <host> on`
+  #     before claudebot may ssh to them;
+  #   - they are laptops, so treat them as intermittently offline. Any health
+  #     check must degrade gracefully rather than alert on absence.
+
+  offsite-target:
+    kind: external
+    role: [gpu-worker, offhost-backup-target]
+    hostname: "<offsite-host>"
+    ssh: { user: "<offsite-user>", via: evilbot }
+    personal: true
+    access_gated: true
+    availability: intermittent
+    real_values: vault    # /tank/vault/secrets.git
+
+# --- Backups -----------------------------------------------------------
+
+backups:
+  source_of_truth: /tank/backups
+  legs:
+    - name: host-config
+      path: /tank/backups/host-config
+      schedule: daily
+      offsite: true
+    - name: host-system
+      path: /tank/backups/host-system
+      schedule: weekly
+      offsite: true
+    - name: vzdump
+      path: /tank/backups/vzdump
+      offsite: false
+      note: "~259G. Deliberately excluded from B2 — covered by the off-host rsync leg."
+  offhost:
+    target: "<offsite-host>"
+    method: rsync
+    schedule: nightly
+  offsite:
+    provider: backblaze-b2
+    tool: restic
+    cron: /etc/cron.d/restic-offsite
+    script: /usr/local/bin/restic-offsite-backup.sh
+    seeded: 2026-08-29
+    verified: "all 7 pve-system-*.tar.zst and 32 pve-config-*.tar.gz OK"
+
+# --- Storage layout ----------------------------------------------------
+
+storage:
+  tank:
+    media: "Organized library (Movies, TV, Audiobooks, Books)"
+    watch: "Torrent watch folders; drop a .torrent to auto-start. Subdirs are categories."
+    incomplete: "In-progress torrent downloads"
+    backups: "VM/system backups"
+    isos: "OS ISOs"
+    vmdata: "VM disk images (ZFS pool tank/vmdata)"
+  known_issues:
+    - "tank/backups object 197143: deleted vzdump-qemu-200 image, links 0, pinned
+       only by snapshots @daily-2026-08-14..08-28. Self-clears ~2026-09-11, then
+       run a scrub. Unrepairable by ZFS — RAM-origin corruption."

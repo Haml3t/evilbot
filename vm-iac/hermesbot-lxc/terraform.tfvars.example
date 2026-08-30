@@ -1,0 +1,20 @@
+# Copy to terraform.tfvars and fill in secrets before running.
+# terraform.tfvars is gitignored — never commit it.
+#
+# The token value lives in /root/.secrets/proxmox-tokens.env as PROXMOX_TOKEN_LXC.
+# It is scoped to the custom ClaudebotLXC role on /pool/claudebots, so pool_id
+# must stay "claudebots" or the create returns 403.
+
+proxmox_api_token = "user@pam!token-id=SECRET"
+
+vm_id            = 700
+hostname         = "hermesbot"
+pool_id          = "claudebots"
+ip_address       = "192.168.0.225/24"   # or "dhcp"
+cpu_cores        = 4
+memory_mb        = 8192
+swap_mb          = 512
+disk_storage     = "local-lvm"
+disk_size_gb     = 40
+template_file_id = "local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst"
+ssh_public_key   = "ssh-ed25519 AAAA... your-key-here"

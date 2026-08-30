@@ -55,10 +55,20 @@ if ! restic -r "$REPO" cat config >/dev/null 2>&1; then
 fi
 
 # Paths to back up
+# NOTE (2026-08-29): vzdump guest images are deliberately EXCLUDED from the cloud
+# copy. They are ~259G (vs ~155G for host-system + 411M for host-config), already
+# covered by the nightly off-host rsync to the desktop, and including them turned
+# the initial seed into a multi-day job that was never completed — leaving the B2
+# repo empty for 6 weeks. The cloud tier's job is to make the HOST rebuildable
+# off-pool and immutably; guest images stay on the off-host leg.
 BACKUP_PATHS=(
-  /tank/backups/vzdump/dump
   /tank/backups/host-config
   /tank/backups/host-system
+  # Local-only secrets vault (bare git repo, mode 700 root). Added 2026-08-30.
+  # This is the ONLY offsite copy it gets — it is deliberately not on GitHub, and
+  # /tank has no redundancy against the known non-ECC RAM fault. restic encrypts
+  # client-side, so shipping it to B2 does not expose the credentials it holds.
+  /tank/vault
 )
 
 # Verify paths exist before starting

@@ -30,6 +30,8 @@ graph TD
         jellyfin["jellyfin\nvmid 400 · 192.168.0.196\nLXC (unprivileged)\nJellyfin media server"]
         inferbot["inferbot\nvmid 500 · 192.168.0.223\nLXC (unprivileged)\nInference routing proxy"]
         opsbot["opsbot\nvmid 600 · 192.168.0.224\nLXC (unprivileged)\nGitHub Actions runner"]
+        devbox["devbox-301\nvmid 301 · 192.168.0.62 (DHCP)\nLXC (unprivileged)\nDev sandbox"]
+        hermesbot["hermesbot\nvmid 700 · 192.168.0.225\nLXC (unprivileged)\nHermes ops agent"]
     end
 
     gpudesktop["gpu-desktop\n192.168.0.12\nbare-metal desktop"]
@@ -290,6 +292,8 @@ sequenceDiagram
 |---|---|
 | inferbot → GPU nodes | HTTP only to inference ports (ComfyUI, Ollama, image-api, VRAM reporter). No SSH keys. No Proxmox API access. |
 | opsbot → deploy targets | SSH keypair scoped to inferbot, evilbot-telegram, gpu-desktop, and evilbot as jump host only. No Proxmox API tokens. |
+| **Guest-to-guest network** | **None.** Flat `192.168.0.0/24`, no segmentation — verified 2026-08-30. Every guest reaches every other directly. The `-J root@evilbot` bounce used throughout these docs is an access *convention*; it is not a boundary and must not be cited as one. Isolation between guests rests entirely on SSH key distribution and the unprivileged-LXC boundary. |
+| hermesbot → fleet | Unprivileged, password-locked, pubkey-only `hermes` account on 7 hosts. Full `sudo` on devbox-301/jellyfin/inferbot/opsbot only — granted by *rebuildability*, since each rebuilds from `vm-iac/`. Read-only on evilbot, evilbot-nas, evilbot-telegram. Read-only Proxmox token (`PVEAuditor`). All `sudo` logged with I/O replay. See `docs/hermes-handoff.md`. |
 | claudebot | AI workspace only — no production daemons, no CI runners, no deploy automation. |
 | Public repo | LAN IPs and SSH public keys are safe to commit. All secrets live in gitignored `*.tfvars` / `.env` files; `*.example` templates are committed instead. |
 | evilbot Proxmox API tokens | Minimum scope per operation (read-only vs. container management). Never combine `Sys.PowerMgmt + Datastore.Allocate + VM.Config.Disk` in one token. |

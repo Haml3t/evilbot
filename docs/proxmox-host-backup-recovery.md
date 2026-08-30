@@ -106,11 +106,25 @@ rsync -a "${OFFSITE_USER}@${OFFSITE_HOST}:${OFFSITE_BASE}/host-system/" /tank/ba
 
 ## Activation checklist (one-time, see README in proxmox-host/backup/)
 
-- [ ] **Off-host:** fill `/root/.secrets/offsite-sync.env`, then add evilbot's
+- [x] **Off-host:** fill `/root/.secrets/offsite-sync.env`, then add evilbot's
       `/root/.ssh/id_rsa.pub` to the offsite user's `~/.ssh/authorized_keys`.
-- [ ] **Cloud:** create a B2 bucket + app key, fill `/root/.secrets/restic-b2.env`. First run
-      auto-initializes the repo. Verify: `restic -r "$REPO" snapshots`.
+      **Done** — nightly rsync healthy.
+- [x] **Cloud:** create a B2 bucket + app key, fill `/root/.secrets/restic-b2.env`.
+      **Seeded 2026-08-29** — snapshot `56305ba1`, 43 files, 154.5 GiB. Nightly cron at 04:00
+      re-enabled in `/etc/cron.d/restic-offsite`. Credentials had in fact been configured for
+      about six weeks before this, but the cron line was commented out, so **the repo sat empty
+      the whole time**. If you disable a backup, leave a dated note saying why.
 - [ ] **Test a restore** quarterly (Scenario 1 is a 30-second drill).
+
+**Archive integrity verified 2026-08-30:** all 7 `pve-system-*.tar.zst` (`zstd -t`) and all 32
+`pve-config-*.tar.gz` (`gzip -t`) decompress cleanly. This was checked specifically because
+evilbot has a known non-ECC RAM fault that corrupted a ZFS block on 2026-08-01 — corruption can
+enter a tarball at write time and receive a valid checksum. It has not happened. That is a
+snapshot in time, not a fix: **the RAM is still unreplaced and memtest is still pending.**
+
+**Cloud backup scope:** `host-config` + `host-system` + `/tank/vault` (the local-only secrets
+repo, added 2026-08-30). `vzdump` guest images are deliberately excluded — ~259 GB, already
+covered by the off-host rsync leg.
 
 ## Verify backups are healthy
 

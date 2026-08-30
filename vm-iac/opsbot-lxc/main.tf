@@ -19,6 +19,23 @@ resource "proxmox_virtual_environment_container" "opsbot" {
   description = "Ops/deploy LXC — GitHub Actions self-hosted runner, deploy automation, health monitoring"
   tags        = ["ops", "ci", "deploy"]
 
+  # ⚠️ pool_id is deliberately NOT set here. Read before adding it.
+  #
+  # The terraform-lxc@pve!lxc token was re-scoped on 2026-06-07 from PVEAdmin on /
+  # to the custom ClaudebotLXC role on /pool/claudebots, and this container (600)
+  # is NOT a member of that pool. So a *recreate* through this module would 403.
+  #
+  # The obvious fix — adding `pool_id = "claudebots"` — is WORSE than the problem:
+  # pool_id is ForceNew in bpg/proxmox, so declaring it on this existing container
+  # plans a DESTROY + recreate, which would wipe the GitHub Actions runner.
+  # Verified against the identical case on inferbot (CT 500) on 2026-08-29.
+  #
+  # Correct sequence, when someone wants to close this properly:
+  #   1. add CT 600 to the pool out-of-band:  pvesh set /pools/claudebots -vms 600
+  #   2. THEN add `pool_id = "claudebots"` here
+  #   3. re-plan and confirm it reports "No changes" before any apply
+  # Step 1 first, always. Never add the attribute to a container already outside the pool.
+
   unprivileged  = true
   start_on_boot = true
 
