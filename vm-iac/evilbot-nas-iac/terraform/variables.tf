@@ -26,6 +26,17 @@ variable "vm_bridge" {
   default = "vmbr0"
 }
 
+variable "vm_mac_address" {
+  description = <<-EOT
+    MAC of the primary NIC, pinned to the live VM (verified 2026-08-30).
+    This VM is DHCP with no guest agent; fleet/inventory.yaml records it at
+    192.168.0.67. Letting Terraform generate a new MAC on recreate would change
+    the DHCP lease and silently invalidate the documented IP.
+  EOT
+  type        = string
+  default     = "BC:24:11:54:3C:26"
+}
+
 variable "ci_user" {
   description = "Initial user created by cloud-init"
   type        = string
