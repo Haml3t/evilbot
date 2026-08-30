@@ -262,15 +262,32 @@ async def _run_imagegen(node_name: str, payload: dict) -> dict:
         _active_imagegen_nodes.discard(node_name)
 
 
+def _llm_backend(model_info: dict, node_name: str) -> tuple[str, str]:
+    """Return (base_url, endpoint) for this model on this node.
+
+    Ollama nodes serve /v1/chat/completions on llm_url. vLLM nodes serve raw
+    /v1/completions on vllm_url — the donnertune contract requires raw
+    completions, not chat, because its baked chat template needs a quality key
+    that the chat API does not pass through.
+    """
+    if model_info.get("backend") == "vllm":
+        base = NODES[node_name].get("vllm_url")
+        if not base:
+            raise HTTPException(status_code=502,
+                                detail=f"node {node_name!r} has no vllm_url for vLLM model")
+        return base, "/v1/completions"
+    return NODES[node_name]["llm_url"], "/v1/chat/completions"
+
+
 async def _run_llm(node_name: str, model_info: dict, body: dict) -> dict:
     _active_llm_nodes.add(node_name)
     try:
-        backend_url = NODES[node_name]["llm_url"]
+        backend_url, endpoint = _llm_backend(model_info, node_name)
         forwarded = {**body, "model": model_info["backend_model"], "stream": False}
         if model_info.get("think"):
             forwarded["think"] = True
         async with httpx.AsyncClient(timeout=BACKEND_TIMEOUT) as client:
-            resp = await client.post(f"{backend_url}/v1/chat/completions", json=forwarded)
+            resp = await client.post(f"{backend_url}{endpoint}", json=forwarded)
         if not resp.is_success:
             raise HTTPException(status_code=502,
                                 detail=f"LLM backend {node_name} returned {resp.status_code}: {resp.text[:300]}")
@@ -479,14 +496,14 @@ async def _enqueue_or_run_llm(body: dict) -> tuple[dict | None, Job | None]:
     # Streaming requests can't be queued — run immediately or fail
     if body.get("stream"):
         node_name = await pick_node(model_info, "llm")
-        backend_url = NODES[node_name]["llm_url"]
+        backend_url, endpoint = _llm_backend(model_info, node_name)
         forwarded = {**body, "model": model_info["backend_model"]}
         if model_info.get("think"):
             forwarded["think"] = True
 
         async def generate():
             async with httpx.AsyncClient(timeout=BACKEND_TIMEOUT) as client:
-                async with client.stream("POST", f"{backend_url}/v1/chat/completions",
+                async with client.stream("POST", f"{backend_url}{endpoint}",
                                          json=forwarded) as r:
                     async for chunk in r.aiter_bytes():
                         yield chunk
@@ -577,7 +594,8 @@ async def list_models() -> JSONResponse:
             for name, m in IMAGEGEN_MODELS.items()
         },
         "llm": {
-            name: {"vram_mb": m["vram_mb"], "nodes": m["nodes"]}
+            name: {"vram_mb": m["vram_mb"], "nodes": m["nodes"],
+                   "backend": m.get("backend", "ollama")}
             for name, m in LLM_MODELS.items()
         },
     })
@@ -598,6 +616,14 @@ async def health() -> JSONResponse:
                     node_status[svc] = "ok" if r.is_success else f"http_{r.status_code}"
                 except Exception:
                     node_status[svc] = "unreachable"
+            # vLLM is a separate backend from Ollama — probe it independently so
+            # donnertune health doesn't masquerade as the Ollama endpoint.
+            if node.get("vllm_url"):
+                try:
+                    r = await client.get(f"{node['vllm_url']}/v1/models")
+                    node_status["vllm"] = "ok" if r.is_success else f"http_{r.status_code}"
+                except Exception:
+                    node_status["vllm"] = "unreachable"
             node_status["vram_free_mb"] = await _vram_free(node)
             node_status["vram_total_mb"] = node["vram_mb"]
             statuses[node_name] = node_status

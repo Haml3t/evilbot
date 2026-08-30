@@ -54,6 +54,24 @@ llm:
     backend_model: "qwen2.5:32b-instruct-q4_K_M"
     think: true
 
+  # Donnertune — self-hosted Qwen3-14B fine-tune (see Haml3t/donnertune-self-hosting).
+  # Served by vLLM, NOT Ollama: the prompt contract requires raw /v1/completions,
+  # because the baked chat template needs a quality key the chat API won't pass
+  # through. fp8 weights ~15.2 GiB; needs ~22 GB free (24 GB card at util ~0.92).
+  # Only gpu-desktop (3090, 24 GB) is eligible — evilbot's 8 GB cannot fit it, so
+  # there is no fallback, same as flux-dev.
+  #
+  # Ampere caveat: fp8 runs via Marlin weight-only kernels on the 3090 — correct
+  # but slower than native Ada/Hopper fp8.
+  donnertune-sft-14b-ep2-fp8:
+    vram_mb: 22000
+    nodes: [gpu-desktop]
+    backend: vllm
+    backend_model: "donnertune-sft-14b-ep2-fp8"
+
+  # bf16 release (~27.5 GiB) needs >= 40 GB — no fleet node qualifies. If a
+  # 48 GB / 80 GB node is ever added, uncomment with the right `nodes` entry.
+
 nodes:
   evilbot:
     image_api_url: "http://192.168.0.145:5005"   # image-api wrapper — what the Telegram bot talks to
@@ -66,5 +84,6 @@ nodes:
     image_api_url: "http://192.168.0.12:5005"
     imagegen_url: "http://192.168.0.12:8188"
     llm_url: "http://192.168.0.12:11434"
+    vllm_url: "http://192.168.0.12:8000"          # vLLM (donnertune) — OpenAI-compatible, raw completions
     vram_reporter_url: "http://192.168.0.12:9835"
     vram_mb: 24576
