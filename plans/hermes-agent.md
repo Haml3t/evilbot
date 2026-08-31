@@ -336,7 +336,7 @@ agent, not a patient adversary.
 leaves `%{seq}` literal, creating a directory actually named `%{seq}`. Fixed in the script; re-run
 it to clean up.
 
-### Phase 3a — Secrets store (local-only) 🔄 DECIDED, BUILT IN PART
+### Phase 3a — Secrets store (local-only) ✅ BUILT & SEEDED (2026-08-31)
 
 **The gap that blocks real administration: the repo is public, so it holds no secrets.** Hermes
 can read a complete map of the fleet and still not administer one machine — no tfvars, no tokens,
@@ -346,12 +346,13 @@ no credentials.
 credentials off GitHub entirely, which removes a whole class of accident that a private repo only
 mitigates. Location `/tank/vault/secrets.git`, mode 700 root.
 
-Status as of 2026-08-30 (Hermes agent verification):
-- `/tank/vault` EXISTS, mode `2700` root:root-uid-1005 (the "UNKNOWN" group is a nameless uid —
-  harmless, but tighten to a real group or leave 700 as the plan says).
-- `/tank/vault` is ALREADY in `BACKUP_PATHS` in `restic-offsite-backup.sh` (added with rationale).
-- The bare `secrets.git` itself does NOT yet exist. This is the remaining step, plus the first
-  commit of real secrets (Proxmox tokens, donnertune keys, /tank/vault API key).
+Status as of 2026-08-31 (human + agent verification):
+- `/tank/vault` EXISTS, mode `2700` root:root (the "UNKNOWN" group was a nameless uid — now root).
+- `/tank/vault` is in `BACKUP_PATHS` in `restic-offsite-backup.sh` (client-side encrypted).
+- The bare `secrets.git` EXISTS and is SEEDED with the first credentials (human, 2026-08-31).
+- Unverified by the agent: whether the seeded set includes the read-only Proxmox token and the
+  donnertune downloader keys; whether the next restic run picks up the vault path. Both are
+  expected but should be confirmed after the next 04:00 run.
 
 `/tank/private/` was considered and **rejected** — it already exists as a media directory and is
 mode `drwxrwsr-x`, world-readable to any account on the NAS. (That permission is worth tightening
