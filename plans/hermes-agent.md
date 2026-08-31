@@ -336,7 +336,8 @@ agent, not a patient adversary.
 leaves `%{seq}` literal, creating a directory actually named `%{seq}`. Fixed in the script; re-run
 it to clean up.
 
-### Phase 3a — Secrets store (local-only) 🔄 DECIDED, NOT BUILT
+### Phase 3a — Secrets store (local-only) 🔄 DECIDED, BUILT IN PART
+
 **The gap that blocks real administration: the repo is public, so it holds no secrets.** Hermes
 can read a complete map of the fleet and still not administer one machine — no tfvars, no tokens,
 no credentials.
@@ -345,12 +346,20 @@ no credentials.
 credentials off GitHub entirely, which removes a whole class of accident that a private repo only
 mitigates. Location `/tank/vault/secrets.git`, mode 700 root.
 
+Status as of 2026-08-30 (Hermes agent verification):
+- `/tank/vault` EXISTS, mode `2700` root:root-uid-1005 (the "UNKNOWN" group is a nameless uid —
+  harmless, but tighten to a real group or leave 700 as the plan says).
+- `/tank/vault` is ALREADY in `BACKUP_PATHS` in `restic-offsite-backup.sh` (added with rationale).
+- The bare `secrets.git` itself does NOT yet exist. This is the remaining step, plus the first
+  commit of real secrets (Proxmox tokens, donnertune keys, /tank/vault API key).
+
 `/tank/private/` was considered and **rejected** — it already exists as a media directory and is
 mode `drwxrwsr-x`, world-readable to any account on the NAS. (That permission is worth tightening
 on its own merits, unrelated to this.)
 
 `/tank/vault` must be added to `BACKUP_PATHS` in `restic-offsite-backup.sh`. restic encrypts
 client-side, so an offsite copy in B2 is safe and is the only durable protection this store gets.
+(DONE — the path is already listed.)
 
 The vault stays **root-only for now**. Hermes does not read it at layer 3; the one secret it
 needs — the read-only Proxmox token — goes directly into a mode-600 file on hermesbot, with the
