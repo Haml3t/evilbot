@@ -86,4 +86,5 @@ nodes:
     llm_url: "http://192.168.0.12:11434"
     vllm_url: "http://192.168.0.12:8000"          # vLLM (donnertune) — OpenAI-compatible, raw completions
     vram_reporter_url: "http://192.168.0.12:9835"
+    gpu_ctl_url: "http://192.168.0.12:9840"       # gpu-ctl lifecycle agent (vLLM start/stop + lockout)
     vram_mb: 24576

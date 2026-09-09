@@ -1,0 +1,23 @@
+[Unit]
+Description=GPU lifecycle agent (vLLM start/stop + lockout) for inference proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# GPU_CTL_TOKEN comes from a root-only env file so the shared secret never
+# lands in this unit or any repo. Create it first:
+#   install -m 600 /dev/null /etc/gpu-ctl.env
+#   sudo sh -c 'printf "GPU_CTL_TOKEN=%s\n" "$(openssl rand -hex 32)" > /etc/gpu-ctl.env'
+EnvironmentFile=/etc/gpu-ctl.env
+ExecStart=/usr/bin/python3 /opt/gpu-ctl/gpu-ctl.py
+Restart=always
+RestartSec=5
+
+# Must run as root: it stops/starts systemd units and the Nomad GPU jobs.
+User=root
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
