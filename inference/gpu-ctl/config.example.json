@@ -1,0 +1,20 @@
+{
+  "token": "REPLACE_WITH_openssl_rand_hex_32",
+  "port": 9840,
+  "lock_file": "/run/gpu-ctl.lock",
+  "vllm": {
+    "unit": "vllm-donnertune",
+    "ready_url": "http://127.0.0.1:8000/v1/models",
+    "completions_url": "http://127.0.0.1:8000/v1/completions",
+    "ready_timeout_s": 300,
+    "api_key_file": "/etc/vllm-donnertune.env"
+  },
+  "services": {
+    "comfyui-gpu-desktop": {
+      "stop": ["nomad", "job", "stop", "-purge", "comfyui-gpu-desktop"]
+    },
+    "ollama-gpu-desktop": {
+      "stop": ["nomad", "job", "stop", "-purge", "ollama-gpu-desktop"]
+    }
+  }
+}
