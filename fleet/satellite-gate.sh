@@ -44,7 +44,7 @@ echo "$out" | grep -q enabled && ok "backup timer enabled" || bad "backup timer:
 
 # 4. config matches the playbook (check mode needs root, so this reads the stamp)
 out=$(r 'cat /etc/hermes-satellite.version 2>/dev/null || echo none')
-rev=$(git -C "$(dirname "$PB")" rev-parse --short HEAD)
+rev=$(git -C "$(dirname "$PB")" log -1 --format=%h -- .)
 echo "$out" | grep -q "^$rev " && ok "playbook rev $rev applied" || bad "applied rev '$out' != repo $rev (re-run playbook)"
 
 echo "--- $H: $fails failure(s)"

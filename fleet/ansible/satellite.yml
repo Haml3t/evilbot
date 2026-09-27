@@ -6,7 +6,7 @@
   # here would silently override per-host values (this once replaced devbox-301's
   # full-sudo file with the narrow allowlist). Defaults are inlined with `default()`.
   vars:
-    playbook_rev: "{{ lookup('pipe', 'git -C ' ~ playbook_dir ~ ' rev-parse --short HEAD') }}"
+    playbook_rev: "{{ lookup('pipe', 'git -C ' ~ playbook_dir ~ ' log -1 --format=%h -- .') }}"
   tasks:
     - name: Ubuntu/Debian only
       ansible.builtin.assert:
