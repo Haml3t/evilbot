@@ -1,0 +1,257 @@
+---
+- name: Hermes satellite baseline
+  hosts: satellites
+  become: true
+  # NO defaults in play `vars:` — play vars OUTRANK inventory host_vars, so a default
+  # here would silently override per-host values (this once replaced devbox-301's
+  # full-sudo file with the narrow allowlist). Defaults are inlined with `default()`.
+  vars:
+    playbook_rev: "{{ lookup('pipe', 'git -C ' ~ playbook_dir ~ ' rev-parse --short HEAD') }}"
+  tasks:
+    - name: Ubuntu/Debian only
+      ansible.builtin.assert:
+        that: ansible_facts.os_family == 'Debian'
+
+    # --- identity -------------------------------------------------------------
+    - name: hermes has no supplementary groups (no sudo/adm/docker/lxd)
+      ansible.builtin.user:
+        name: hermes
+        groups: ""
+        append: false
+        password_lock: true
+        shell: /bin/bash
+
+    - name: sshd restrictions for hermes (rolled back if sshd -t fails)
+      block:
+        - name: sshd drop-in
+          ansible.builtin.copy:
+            dest: /etc/ssh/sshd_config.d/61-hermes-restrict.conf
+            mode: "0644"
+            content: |
+              # managed by evilbot fleet/ansible/satellite.yml
+              Match User hermes
+                  AuthenticationMethods publickey
+                  AllowTcpForwarding no
+                  AllowAgentForwarding no
+                  X11Forwarding no
+                  PermitTunnel no
+              # Close the Match: this file is Included at the TOP of sshd_config,
+              # so without this every later main-config line would apply only to hermes.
+              Match all
+          notify: reload ssh
+        - name: sshd config test
+          ansible.builtin.command: /usr/sbin/sshd -t
+          changed_when: false
+      rescue:
+        - name: remove bad drop-in
+          ansible.builtin.file:
+            path: /etc/ssh/sshd_config.d/61-hermes-restrict.conf
+            state: absent
+        - name: stop
+          ansible.builtin.fail:
+            msg: "sshd -t failed with the hermes drop-in; removed it, nothing reloaded"
+
+    - name: list home directories
+      ansible.builtin.find:
+        paths: /home
+        file_type: directory
+        recurse: false
+      register: homes
+
+    - name: other users' homes are closed to hermes (o-rwx)
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        mode: o-rwx
+      loop: "{{ homes.files | rejectattr('path', 'equalto', '/home/hermes') | list }}"
+      loop_control: { label: "{{ item.path }}" }
+
+    - name: hermes home is private
+      ansible.builtin.file:
+        path: /home/hermes
+        mode: "0700"
+
+    # --- backups --------------------------------------------------------------
+    - name: packages
+      ansible.builtin.apt:
+        name: [restic, curl]
+        update_cache: true
+        cache_valid_time: 86400
+
+    - name: backup config dir
+      ansible.builtin.file:
+        path: /etc/hermes-backup
+        state: directory
+        mode: "0700"
+
+    - name: backup credentials
+      no_log: true
+      ansible.builtin.copy:
+        dest: /etc/hermes-backup/env
+        mode: "0600"
+        content: |
+          RESTIC_REPOSITORY=rest:http://{{ backup_user }}:{{ backup_http_password }}@{{ backup_server }}:{{ backup_port | default(8000) }}/{{ backup_user }}/
+          RESTIC_PASSWORD={{ restic_password }}
+          BACKUP_PROBE=http://{{ backup_server }}:{{ backup_port | default(8000) }}/
+          RESTIC_CACHE_DIR=/var/cache/restic
+
+    - name: excludes
+      ansible.builtin.copy:
+        dest: /etc/hermes-backup/excludes
+        mode: "0600"
+        content: |
+          /home/*/.cache
+          /home/*/.local/share/Trash
+          /home/*/.local/share/Steam
+          /home/*/snap/*/*/.cache
+          /home/*/Downloads/*.iso
+          /home/*/.npm/_cacache
+          /home/*/.cargo/registry
+          /home/*/.rustup
+          /home/*/.ollama/models
+          /home/*/.cache/huggingface
+          **/node_modules
+          **/.venv
+          /root/.cache
+          {% for u in backup_exclude_users | default([]) %}
+          /home/{{ u }}
+          {% endfor %}
+          {% for e in backup_extra_excludes | default([]) %}
+          {{ e }}
+          {% endfor %}
+
+    - name: backup + status + verify scripts
+      ansible.builtin.copy:
+        dest: "/usr/local/sbin/{{ item.name }}"
+        mode: "0700"
+        owner: root
+        group: root
+        content: "{{ item.body }}"
+      loop:
+        - name: hermes-backup
+          body: |
+            #!/bin/bash
+            # managed by evilbot fleet/ansible/satellite.yml
+            set -euo pipefail
+            set -a; . /etc/hermes-backup/env; set +a
+            restic cat config >/dev/null 2>&1 || restic init
+            restic backup --one-file-system --exclude-caches \
+              --exclude-file /etc/hermes-backup/excludes \
+              --tag hermes-satellite /etc /home /root /usr/local /var/spool/cron
+        - name: hermes-backup-status
+          body: |
+            #!/bin/bash
+            # prints the latest snapshot time and its age in hours (no secrets)
+            set -euo pipefail
+            set -a; . /etc/hermes-backup/env; set +a
+            t=$(restic snapshots --json | python3 -c 'import json,sys; s=json.load(sys.stdin); print(max(x["time"] for x in s) if s else "")')
+            [ -n "$t" ] || { echo "NO_SNAPSHOTS"; exit 1; }
+            echo "latest=${t:0:19} age_h=$(( ($(date +%s) - $(date -d "$t" +%s)) / 3600 ))"
+        - name: hermes-backup-verify
+          body: |
+            #!/bin/bash
+            # restore test + append-only proof. Prints PASS/FAIL lines, exits non-zero on any FAIL.
+            set -uo pipefail
+            set -a; . /etc/hermes-backup/env; set +a
+            rc=0; tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+            if restic restore latest --target "$tmp" --include /etc/hostname >/dev/null 2>&1 \
+               && [ -s "$tmp/etc/hostname" ]; then
+              echo "PASS restore: /etc/hostname restored from latest snapshot"
+            else echo "FAIL restore"; rc=1; fi
+            restic check --read-data-subset=2% >/dev/null 2>&1 && echo "PASS check: repo + 2% data" || { echo "FAIL check"; rc=1; }
+            base=${RESTIC_REPOSITORY#rest:}
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "${base}keys/$(printf '0%.0s' {1..64})")
+            [ "$code" = 403 ] && echo "PASS append-only: DELETE refused (403)" || { echo "FAIL append-only: DELETE returned $code"; rc=1; }
+            exit $rc
+
+    - name: backup systemd units
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/{{ item.name }}"
+        mode: "0644"
+        content: "{{ item.body }}"
+      loop:
+        - name: hermes-backup.service
+          body: |
+            [Unit]
+            Description=restic backup to evilbot-nas (append-only)
+            Wants=network-online.target
+            After=network-online.target
+            [Service]
+            Type=oneshot
+            EnvironmentFile=/etc/hermes-backup/env
+            # NAS unreachable (laptop away from home and tailnet down): skip, not fail.
+            ExecCondition=/bin/sh -c 'curl -s -m 10 -o /dev/null -w "%%{http_code}" "$BACKUP_PROBE" | grep -q 401'
+            ExecStart=/usr/local/sbin/hermes-backup
+            Nice=10
+            IOSchedulingClass=idle
+        - name: hermes-backup.timer
+          body: |
+            [Unit]
+            Description=daily restic backup
+            [Timer]
+            OnCalendar=daily
+            RandomizedDelaySec=1h
+            Persistent=true
+            [Install]
+            WantedBy=timers.target
+      register: units
+
+    - name: enable backup timer
+      ansible.builtin.systemd_service:
+        name: hermes-backup.timer
+        enabled: true
+        state: started
+        daemon_reload: "{{ units.changed }}"
+
+    # --- standing allowlist ---------------------------------------------------
+    - name: refuse to overwrite a sudoers file not managed by this playbook
+      ansible.builtin.shell: |
+        f="{{ standing_sudoers | default('/etc/sudoers.d/hermes') }}"
+        [ ! -e "$f" ] || grep -q 'managed by evilbot fleet/ansible/satellite.yml' "$f"
+      changed_when: false
+
+    - name: standing sudo allowlist (validated)
+      ansible.builtin.copy:
+        dest: "{{ standing_sudoers | default('/etc/sudoers.d/hermes') }}"
+        mode: "0440"
+        owner: root
+        group: root
+        validate: /usr/sbin/visudo -cf %s
+        content: |
+          # managed by evilbot fleet/ansible/satellite.yml — standing, narrow.
+          # Broad work goes through `sudo hermes-grant <min>` (operator-initiated).
+          Defaults:hermes !requiretty
+          Defaults:hermes logfile=/var/log/sudo-hermes.log
+          Defaults:hermes log_input, log_output
+          Defaults:hermes iolog_dir=/var/log/sudo-io/%{user}
+          Defaults:hermes iolog_file=%{seq}
+          hermes ALL=(root) NOPASSWD: /usr/local/sbin/hermes-backup-status, \
+                                      /usr/local/sbin/hermes-backup-verify, \
+                                      /usr/bin/systemctl start --no-block hermes-backup.service, \
+                                      /usr/bin/systemctl status *, \
+                                      /usr/bin/journalctl --no-pager *, \
+                                      /usr/sbin/smartctl -a *, \
+                                      /usr/bin/apt-get update
+
+    - name: record applied revision
+      ansible.builtin.copy:
+        dest: /etc/hermes-satellite.version
+        mode: "0644"
+        content: "{{ playbook_rev }} {{ now(utc=true).isoformat() }}\n"
+
+    - name: first backup (async; large first run is expected)
+      ansible.builtin.command: systemctl start --no-block hermes-backup.service
+      changed_when: false
+
+    - name: apply pending handlers while sudo is still open
+      ansible.builtin.meta: flush_handlers
+
+    - name: close the sudo window opened by the bootstrap
+      ansible.builtin.command: /usr/local/sbin/hermes-revoke
+      when: close_window | default(true) | bool
+      changed_when: true
+
+  handlers:
+    - name: reload ssh
+      ansible.builtin.systemd_service:
+        name: ssh
+        state: reloaded

@@ -1,0 +1,7 @@
+# ~/.hermes/fleet/host_vars/<host>.yml on hermesbot, mode 0600. NEVER commit.
+backup_user: <host>                 # rest-server htpasswd user == repo subdir
+backup_http_password: <generated>   # rest-server basic-auth password
+restic_password: <generated>        # restic repo encryption password (ALSO keep off-box!)
+backup_server: 192.168.0.67         # LAN; laptops: the NAS tailnet IP
+backup_exclude_users: []            # e.g. [philips-work]
+backup_extra_excludes: []           # e.g. ['/home/*/ComfyUI/models']
