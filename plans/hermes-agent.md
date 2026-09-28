@@ -442,10 +442,41 @@ applied playbook revision matching the repo.
 
 **Verified 2026-09-28: 0 failures on all three machines.**
 
+**Restore drill — L2 performed 2026-09-28 (first real one).** On devbox-301, against the
+third machine's repository, using credentials staged temporarily and removed afterwards:
+
+- Full snapshot restored: 166,277 files / 27938 symlinks / 19,863 dirs, 1m56s, exit 0.
+- Byte reconciliation: counting hardlinks once gives a **0.0000% delta** against the
+  snapshot's own `stats` (15,459,991,015 bytes — exact match). The apparent 15% shortfall
+  is hardlink double-counting, and the count wobble is symlink-to-dir classification.
+- `restic restore --verify` (restic re-reads every file and checks it against the repo,
+  scoped to `/etc` and `/root` + `/var/spool/cron` to fit the disk): **exit 0**, files verified.
+- Metadata spot-checks correct and meaningful: `/etc/hostname` 0644 root:root,
+  `/etc/shadow` 0640 root:shadow.
+- Repo `restic check --read-data-subset=10%`: no errors.
+
+Still **not** done: **L3** — rebuilding a working system from a snapshot and logging in. L2
+proves the data and metadata are faithfully recoverable; it does not prove a bare-metal
+rebuild. Do not describe L2 as a disaster-recovery test.
+
+Two operational lessons from the drill, both worth keeping:
+
+- **Size the drill to the host.** A full `--verify` restore needs roughly 2x the snapshot
+  on disk. On a 32G disposable host that filled the filesystem to 100%, at which point
+  sudo itself fails (its I/O log plugin cannot mkdir) — a genuine deadlock, since freeing
+  space needed root. Recovery worked by truncating root-owned-but-hermes-writable files
+  under the drill directory, which freed enough blocks for sudo to start. On a host where
+  uids align differently that escape hatch would not exist. Check free space first.
+- **Kill the drill process before deleting its output.** Aborting a restic restore leaves
+  an exclusive lock in the repository, and every later `restic check` then fails on that
+  machine with "repository is already locked". It looks like repository corruption and is
+  not. `restic unlock` clears it. This cost a false alarm on the third machine.
+
 **Not yet done — say so rather than implying otherwise:**
 
-- No restore test has been performed at the *whole-machine* level — the gate restores one
-  file, which proves the repository reads, not that a bare-metal recovery would work.
+- **L3 restore (bare-metal rebuild and log in) has not been done.** L2 above is done and
+  passed, but it restores *data*, onto a running host. It does not prove a machine can be
+  rebuilt from the snapshot alone.
 - The hub reaches the laptops with a path-scoped tailnet grant (`tag:hermes` → the two
   laptops on `tcp:22` only, with a `tests` block asserting the denials). The desktop is
   reached over LAN and is deliberately not in that grant.
