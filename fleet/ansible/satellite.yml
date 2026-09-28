@@ -93,11 +93,22 @@
         mode: "0700"
 
     # --- backups --------------------------------------------------------------
+    # A cache refresh must not fail the run. On a personal machine a single
+    # third-party repo with an expired or missing GPG key makes `apt-get update`
+    # exit non-zero (seen on a workstation 2026-09-28: one repo NO_PUBKEY,
+    # another EXPKEYSIG), which would otherwise abort the whole backup
+    # deployment over something unrelated to it.
+    - name: refresh apt cache (best effort — third-party repo keys may be broken)
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 86400
+      failed_when: false
+      changed_when: false
+
     - name: packages
       ansible.builtin.apt:
         name: [restic, curl]
-        update_cache: true
-        cache_valid_time: 86400
+        state: present
 
     - name: backup config dir
       ansible.builtin.file:
@@ -160,6 +171,20 @@
         owner: root
         group: root
 
+    # Opt-in, per host. Exporting locally-built docker images is OFF unless a
+    # host sets both a size cap and an allowlist regex — see the long comment in
+    # hermes-backup-manifest.sh. On a dev box most local-only images are
+    # rebuildable build artefacts, and on a work-adjacent box they may contain
+    # employer code that must not be copied to home storage.
+    - name: manifest generator config
+      ansible.builtin.copy:
+        dest: /etc/hermes-backup/manifest.env
+        mode: "0600"
+        content: |
+          HBM_LOCAL_IMAGE_MAX_MB={{ hbm_local_image_max_mb | default(0) }}
+          HBM_LOCAL_IMAGE_TOTAL_MB={{ hbm_local_image_total_mb | default(8192) }}
+          HBM_LOCAL_IMAGE_INCLUDE={{ hbm_local_image_include | default('') }}
+
     - name: backup + status + verify scripts
       ansible.builtin.copy:
         dest: "/usr/local/sbin/{{ item.name }}"
@@ -177,6 +202,9 @@
             # Record what is deliberately NOT backed up (docker images, snaps,
             # flatpaks, apt selections, disk layout) BEFORE the snapshot, so the
             # manifests describe the state the snapshot captures. Never fatal.
+            if [ -r /etc/hermes-backup/manifest.env ]; then
+              set -a; . /etc/hermes-backup/manifest.env; set +a
+            fi
             /usr/local/sbin/hermes-backup-manifest || true
             restic cat config >/dev/null 2>&1 || restic init
             # Only pass paths that exist. restic exits 3 ("incomplete") on a
