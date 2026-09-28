@@ -440,13 +440,14 @@ under 26 hours old, restoration of `/etc/hostname` from the latest snapshot, a c
 `restic check --read-data-subset=2%`, the 403 above, the timer being enabled, and the
 applied playbook revision matching the repo.
 
-**Verified 2026-09-28: 0 failures on 2 of 3 machines.** The third was powered off.
+**Verified 2026-09-28: 0 failures on all three machines.**
 
-**Not yet hardened — say so rather than implying otherwise:**
+**Not yet done — say so rather than implying otherwise:**
 
-- The restrictive tailnet ACL (`tag:hermes` → personal machines on `:22` only) is **not**
-  in place. Reachability currently rests on the default allow-all policy.
 - No restore test has been performed at the *whole-machine* level — the gate restores one
   file, which proves the repository reads, not that a bare-metal recovery would work.
-- The 2026-09-28 target: both machines' first full snapshot completed. Their
-  `/home` trees are large enough that the first run takes hours; that is expected.
+- The hub reaches the laptops with a path-scoped tailnet grant (`tag:hermes` → the two
+  laptops on `tcp:22` only, with a `tests` block asserting the denials). The desktop is
+  reached over LAN and is deliberately not in that grant.
+- The hub deliberately has **no** grant to the NAS, so it cannot reach the backup server.
+  It does not need to; each machine reaches it directly.

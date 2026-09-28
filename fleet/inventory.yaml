@@ -99,12 +99,29 @@ agent_access:
       snapshot < 26h, restore of /etc/hostname from the latest snapshot, restic
       check --read-data-subset=2%, DELETE refused 403 by the append-only server,
       backup timer enabled, and the applied playbook revision.
-    verified: "2026-09-28 — 0 failures on 2 of 3 machines; the third was offline"
-    not_yet_hardened: >
-      The restrictive tailnet ACL (tag:hermes -> personal machines on :22 only) is
-      NOT in place. Reachability currently relies on the default allow-all policy.
-      Laptop backups assume the backup server is reachable over the tailnet; that
-      path was verified from a laptop on 2026-09-28.
+    verified: "2026-09-28 — satellite-gate.sh 0 failures on all three machines"
+    tailnet_acl: |
+      Restrictive, and in place as of 2026-09-28. tag:hermes -> the two laptops on
+      tcp:22 ONLY, plus an explicit `tests` block asserting t470s:22/t14:22 accepted
+      and t470s:80, tag:nas:445, tag:desktop:22, tag:proxmox:22 denied. Verified from
+      this node: port 22 connects, port 80 and 445 are refused.
+      Two things worth knowing if it is ever rewritten:
+        - The `hosts` alias must be a FULL tailnet address (100.x). A one-digit typo
+          (10.69.54.50 for 100.69.54.50) silently makes that host unresolvable to the
+          grant, so it drops out of the netmap entirely and the failure looks like a
+          network problem rather than a policy one. The symptom to recognise: the
+          hub's netmap lists fewer peers than the tailnet has, and a dial fails with
+          "timed out during banner exchange" (local proxy accepted, backend refused)
+          rather than an immediate connection refusal.
+        - The desktop is NOT in this grant; it is reached over LAN. Add it here only
+          if the hub must reach it from off-LAN.
+    not_granted_on_purpose: |
+      tag:hermes -> tag:nas is deliberately absent, so this node cannot reach the
+      restic rest-server on evilbot-nas. It does not need to: every backup client
+      reaches it directly (they are owned by the tailnet user, which the NAS grant
+      covers). Verified 2026-09-28 — nas:8000 refused from this node, while the
+      append-only 403 proof PASSes on the machines, which is what demonstrates the
+      client->NAS path independently of this node.
 
 defaults:
   ssh_user: root
