@@ -67,7 +67,27 @@ not edit `/etc/sudoers.d/hermes` — it is managed from `fleet/grant-hermes-sudo
 | `evilbot-nas` | **No Terraform module at all**, and it mounts `/tank`. Not rebuildable. |
 | `evilbot-telegram` | Holds `TELEGRAM_BOT_TOKEN` in `/opt/evilbot/.env`. |
 | `claudebot` (300) | Another agent's workspace. Not infrastructure. Leave it alone. |
-| The operator's desktop and laptops | Personal machines behind a deliberate approval gate. |
+| The operator's desktop and laptops | Personal machines. No standing broad sudo — see the note below. |
+
+**Personal machines — updated 2026-09-27 (this reverses what this document originally said).**
+Three of them now carry a `hermes` account. The operator reversed the earlier "no access" call
+deliberately. What you have there is a *personally* weaker position than on the guests, and it is
+enforced, not advisory:
+
+- **No standing broad sudo.** `sudo -n true` must fail. The only standing entries are read-only
+  diagnostics, backup status/verify, and starting the backup unit. Broad sudo exists solely as a
+  time-boxed window the operator opens with `hermes-grant <minutes>`.
+- **You must not read another user's home.** Those are `0700`, so you physically cannot. Do not
+  ask for, or look for, a way around it — the point of it is that a future employer/work user's
+  files stay invisible to you. If a task only works by reading the operator's home directory,
+  report that the task is outside your authority rather than escalating.
+- **Everything you change there goes through the playbook** (`fleet/ansible/satellite.yml`),
+  commit then apply — never ad hoc. That is what makes the access grantable at all.
+- The pass/fail check before the key counts as always-accepted is `fleet/satellite-gate.sh <host>`.
+  Run it after any change; it exits with the number of failures.
+- Machine names, addresses, and credentials are **not in this repo**. They are in the local-only
+  `~/.hermes/fleet/` on hermesbot. Keep it that way; use `<offsite-host>`-style placeholders in
+  anything you commit.
 
 For work on those, prepare the change, explain it, and ask. Do not look for a way around the
 gate; the gate is the design.
