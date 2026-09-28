@@ -7,6 +7,28 @@
   # full-sudo file with the narrow allowlist). Defaults are inlined with `default()`.
   vars:
     playbook_rev: "{{ lookup('pipe', 'git -C ' ~ playbook_dir ~ ' log -1 --format=%h -- .') }}"
+    # SAFE as a play var *because no host_vars key of this name exists*: hosts
+    # override it by setting `backup_paths`, which is consulted first via
+    # `backup_paths | default(default_backup_paths)`. Never rename a host_vars
+    # key to match one of these — see the warning above.
+    #
+    # /var/lib/hermes-backup  : the manifests of what we deliberately skip
+    # /var/lib/tailscale      : node identity; without it a restored machine
+    #                           rejoins the tailnet as a NEW node
+    # /var/lib/docker         : named volumes + container config survive; the
+    #                           re-pullable layers are dropped in the exclude file
+    # /var/snap               : per-snap app DATA (small); the squashfs images
+    #                           in /var/lib/snapd are excluded
+    default_backup_paths:
+      - /etc
+      - /home
+      - /root
+      - /usr/local
+      - /var/spool/cron
+      - /var/lib/hermes-backup
+      - /var/lib/tailscale
+      - /var/lib/docker
+      - /var/snap
   tasks:
     - name: Ubuntu/Debian only
       ansible.builtin.assert:
@@ -112,12 +134,31 @@
           **/node_modules
           **/.venv
           /root/.cache
+          # Re-downloadable package payloads. What was installed is recorded by
+          # hermes-backup-manifest into /var/lib/hermes-backup/manifests, which IS
+          # backed up — so a rebuild reinstalls from the list instead of restoring
+          # gigabytes of squashfs and image layers.
+          /var/lib/snapd
+          /var/lib/flatpak
+          /var/lib/docker/overlay2
+          /var/lib/docker/image
+          /var/lib/docker/buildkit
+          /var/lib/docker/tmp
+          /var/lib/docker/containers/*/*-json.log
           {% for u in backup_exclude_users | default([]) %}
           /home/{{ u }}
           {% endfor %}
           {% for e in backup_extra_excludes | default([]) %}
           {{ e }}
           {% endfor %}
+
+    - name: manifest generator (records what is deliberately NOT backed up)
+      ansible.builtin.copy:
+        src: ../hermes-backup-manifest.sh
+        dest: /usr/local/sbin/hermes-backup-manifest
+        mode: "0700"
+        owner: root
+        group: root
 
     - name: backup + status + verify scripts
       ansible.builtin.copy:
@@ -133,10 +174,25 @@
             # managed by evilbot fleet/ansible/satellite.yml
             set -euo pipefail
             set -a; . /etc/hermes-backup/env; set +a
+            # Record what is deliberately NOT backed up (docker images, snaps,
+            # flatpaks, apt selections, disk layout) BEFORE the snapshot, so the
+            # manifests describe the state the snapshot captures. Never fatal.
+            /usr/local/sbin/hermes-backup-manifest || true
             restic cat config >/dev/null 2>&1 || restic init
+            # Only pass paths that exist. restic exits 3 ("incomplete") on a
+            # missing path, which under `set -e` would fail an otherwise good
+            # backup — e.g. /var/lib/docker on a host with no docker.
+            paths=()
+            for p in {{ backup_paths | default(default_backup_paths) | join(' ') }}; do
+              [ -e "$p" ] && paths+=("$p")
+            done
+            # NB: do not use bash's array-length syntax here — Jinja reads the
+            # brace-hash sequence as a comment tag and the playbook fails with
+            # "Missing end of comment tag". Test the joined array instead.
+            [ -n "${paths[*]:-}" ] || { echo "no backup paths exist" >&2; exit 1; }
             restic backup --one-file-system --exclude-caches \
               --exclude-file /etc/hermes-backup/excludes \
-              --tag hermes-satellite /etc /home /root /usr/local /var/spool/cron
+              --tag hermes-satellite "${paths[@]}"
         - name: hermes-backup-status
           body: |
             #!/bin/bash
@@ -157,7 +213,22 @@
                && [ -s "$tmp/etc/hostname" ]; then
               echo "PASS restore: /etc/hostname restored from latest snapshot"
             else echo "FAIL restore"; rc=1; fi
-            restic check --read-data-subset=2% >/dev/null 2>&1 && echo "PASS check: repo + 2% data" || { echo "FAIL check"; rc=1; }
+            restic check --read-data-subset=2% >/dev/null 2>&1 && echo "PASS check: repo + 2% data" || {
+              # An ABORTED restore/backup leaves an exclusive lock, and every later
+              # check then fails "repository is already locked". That reads as
+              # corruption and is not. Name it so nobody chases a phantom.
+              if restic list locks 2>/dev/null | grep -q .; then
+                echo "FAIL check: repository is LOCKED (stale lock from an aborted run, NOT corruption) — run: restic unlock"
+              else
+                echo "FAIL check"
+              fi
+              rc=1
+            }
+            # Coverage: the manifests of what we deliberately skip must be IN the
+            # snapshot, otherwise a rebuild has no record of docker/snap/flatpak/apt.
+            if restic ls latest /var/lib/hermes-backup/manifests 2>/dev/null | grep -q 'apt-manual.txt'; then
+              echo "PASS manifests: skip-list manifests present in latest snapshot"
+            else echo "FAIL manifests: /var/lib/hermes-backup/manifests missing from snapshot"; rc=1; fi
             base=${RESTIC_REPOSITORY#rest:}
             code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "${base}keys/$(printf '0%.0s' {1..64})")
             [ "$code" = 403 ] && echo "PASS append-only: DELETE refused (403)" || { echo "FAIL append-only: DELETE returned $code"; rc=1; }
