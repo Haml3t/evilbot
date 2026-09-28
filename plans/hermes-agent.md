@@ -12,7 +12,8 @@
 - [x] Phase 1: `hermesbot` LXC (vmid 700) + IaC — **APPLIED 2026-08-29**, CT 700 running at 192.168.0.225
 - [x] Phase 2: Install + hosted model provider + CLI smoke test — **DONE 2026-08-30**, model `anthropic/claude-opus-5` via Nous Portal
 - [x] Phase 3: Least-privilege fleet identity — **DONE 2026-08-30**: accounts on 7 hosts, own key, client config, read-only `PVEAuditor` token, all verified
-- [ ] Phase 3a: Secrets store — decided (local-only bare repo at `/tank/vault/secrets.git`), not built
+- [x] Phase 3a: Personal machines — **DONE 2026-09-28**. See section 9.
+- [ ] Phase 3b: Secrets store — decided (local-only bare repo at `/tank/vault/secrets.git`), exists but contents not yet verified by the agent (root-owned, no read access)
 - [ ] Phase 4: SSH terminal backend → devbox-301 sandbox
 - [ ] Phase 5: Telegram gateway (second bot, locked to one user)
 - [ ] Phase 6: Homelab skills + cron jobs
@@ -398,4 +399,54 @@ Proxmox firewall rules. `repo-safety-check`. `docs/hermesbot.md`. Update the top
 1. ~~**Model provider**~~ — **DECIDED 2026-08-29: Nous Portal.** One OAuth login covers the model plus the Tool Gateway (web search, image gen, TTS, cloud browser), so the ops skills don't need separate keys. Claude Pro was never an option (§3). Tiering still matters more than the provider: no-agent cron for mechanical checks (zero LLM cost), a cheap model for routine digests via `cron.model`, a strong model only for ad-hoc chat and hard triage.
 2. **Static vs DHCP for `.225`** — static matches convention and makes firewall rules stable, at the cost of one more manual step on a network move. Recommend static.
 3. **Whether Hermes eventually absorbs the evilbot-telegram bot (vmid 200)** or runs alongside it. Recommend alongside, indefinitely — the existing bot is simple and works.
-4. **Does it get the gated personal machines at all?** Recommend no. Those are personal machines behind a deliberate approval gate; an unattended agent should not hold that access.
+4. **Does it get the gated personal machines at all?** ~~Recommend no.~~ **REVERSED 2026-09-27 by the operator**, deliberately and with the isolation model in §9 attached: yes, with a per-machine gate, no standing broad sudo, and an enforced ban on reading a work user's home. The original reasoning (an unattended agent should not hold that access) is why the §9 baseline is stricter than the guests'. See `~/.hermes/plans/2026-09-27_afk-gateway-fleet-federation-todo.md` for the deciding context — that file is local-only because it names personal machines.
+
+---
+
+## 9. Personal machines (Phase 3a) — applied 2026-09-28
+
+Three personal Ubuntu machines now carry the `hermes` account. Because these are the
+operator's own machines and not rebuildable infrastructure, the baseline is stricter than
+the guests': no standing broad sudo, and a hard ban on reading another user's home.
+
+**Enforced per machine** (public code: `fleet/ansible/satellite.yml`,
+`fleet/satellite-bootstrap.sh`, `fleet/satellite-gate.sh`;
+machine-specific values stay in the local-only `~/.hermes/fleet/` on hermesbot):
+
+- `hermes` is password-locked, pubkey only, and in **no** supplementary groups.
+- `sshd` has a `Match User hermes` block disabling agent/TCP/X11 forwarding.
+- Every other `/home/*` is `0700`, so `hermes` cannot read the operator's files — or a
+  future employer/work user's files. A work user is added to
+  `backup_exclude_users` for that machine, which keeps it out of the backup too.
+- Standing `sudoers.d/hermes`: read-only diagnostics, backup status, backup verify, and
+  `systemctl start hermes-backup.service`. Nothing else.
+- Broad sudo is **time-boxed only**: `hermes-grant <minutes>` writes
+  `/etc/sudoers.d/hermes-temp` (validated with `visudo -c`), auto-removed by
+  `systemd-run --on-active`; `hermes-revoke` ends it early. The playbook's final task
+  closes the window it was run inside.
+- restic daily systemd timer, `Persistent=true` (catches up after the machine was off),
+  skipped cleanly when the backup server is unreachable.
+
+**Backups.** Each machine writes to the append-only `rest-server` on `evilbot-nas`
+(`--append-only --private-repos`): a machine sees only its own repository, and no client
+can delete its own snapshots (verified: a `DELETE` returns 403). The laptop leg reaches
+that listener over the tailnet, verified 2026-09-28 — so it is the one service this repo
+documents as intentionally reachable from off-LAN.
+
+**The gate.** `fleet/satellite-gate.sh <host>` exits with the number of FAILs and is the
+pass/fail check before the key is treated as always-accepted. It verifies reachability, no
+ambient root, no extra groups, no open grant window, other homes unreadable, a snapshot
+under 26 hours old, restoration of `/etc/hostname` from the latest snapshot, a clean
+`restic check --read-data-subset=2%`, the 403 above, the timer being enabled, and the
+applied playbook revision matching the repo.
+
+**Verified 2026-09-28: 0 failures on 2 of 3 machines.** The third was powered off.
+
+**Not yet hardened — say so rather than implying otherwise:**
+
+- The restrictive tailnet ACL (`tag:hermes` → personal machines on `:22` only) is **not**
+  in place. Reachability currently rests on the default allow-all policy.
+- No restore test has been performed at the *whole-machine* level — the gate restores one
+  file, which proves the repository reads, not that a bare-metal recovery would work.
+- The 2026-09-28 target: both machines' first full snapshot completed. Their
+  `/home` trees are large enough that the first run takes hours; that is expected.

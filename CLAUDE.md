@@ -31,7 +31,7 @@ This is **claudebot** — an unprivileged Debian 12 LXC container (vmid 300) run
 | inferbot | LXC (vmid 500) | 192.168.0.223 | `ssh -J root@192.168.0.145 root@192.168.0.223` ✅ | Nomad server + inference routing proxy; firewalled HTTP-only. **Static IP** (gw 192.168.0.1) |
 | opsbot | LXC (vmid 600) | 192.168.0.224 | `ssh -J root@192.168.0.145 root@192.168.0.224` ✅ | Ops container; IaC in `vm-iac/opsbot-lxc/`. **Static IP** (gw 192.168.0.1) |
 | devbox-301 | LXC (vmid 301) | 192.168.0.62 (DHCP) | `ssh -J root@192.168.0.145 root@192.168.0.62` ✅ | Dev sandbox; IaC in `vm-iac/devbox/` |
-| gpu-desktop | Desktop (external) | 192.168.0.12 | `ssh <user>@192.168.0.12` | RTX 3090 24GB; ComfyUI + Nomad client; claudebot has no key there |
+| gpu-desktop | Desktop (external) | 192.168.0.12 | `ssh hermes@192.168.0.12` ✅ | RTX 3090 24GB; ComfyUI + Nomad client; `hermes` account since 2026-09-28 (no standing broad sudo; playbook-managed) |
 | hermesbot | LXC (vmid 700) | 192.168.0.225 | `ssh -J root@192.168.0.145 root@192.168.0.225` ✅ | Hermes Agent — homelab ops agent (gateway + cron); IaC in `vm-iac/hermesbot-lxc/`. **Static IP** (gw 192.168.0.1) |
 | claudebot | LXC (vmid 300) | 192.168.0.222 | this container | |
 

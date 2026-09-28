@@ -14,7 +14,7 @@
 # real time to discover. Read them before acting on that host.
 
 schema_version: 1
-updated: 2026-08-30
+updated: 2026-09-28
 
 network:
   subnet: 192.168.0.0/24
@@ -70,6 +70,41 @@ agent_access:
       token ACL. Both grants are required; with only the user grant the token has no
       permissions at all. `pveum acl modify` takes --roles (plural), and the token id
       contains '!' so it must be single-quoted at every layer.
+
+  # Personal machines (see the external-machines note under `hosts`). Same `hermes`
+  # account and the same public key, but a HARDER baseline than the guests above —
+  # these are the operator's own machines, not rebuildable infrastructure.
+  personal_machines:
+    provisioned: 2026-09-28
+    mechanism: >
+      fleet/satellite-bootstrap.sh (operator, once) then
+      ansible-playbook -i <private inventory> fleet/ansible/satellite.yml -l <host>,
+      then fleet/satellite-gate.sh <host> as the pass/fail check.
+    per_machine_state: /etc/hermes-satellite.version   # playbook revision stamp
+    baseline:
+      - "hermes user: password locked, pubkey only, NO supplementary groups"
+      - "sshd Match User hermes: no agent/TCP/X11 forwarding"
+      - "every other /home/* is 0700, so hermes cannot read the operator's files
+         or a future employer/work user's files"
+      - "standing /etc/sudoers.d/hermes: read-only diagnostics, backup status,
+         backup verify, and `systemctl start hermes-backup.service`. Nothing else."
+      - "broad sudo is TIME-BOXED only: hermes-grant <minutes> writes
+         /etc/sudoers.d/hermes-temp, validated with visudo -c, removed by
+         systemd-run --on-active. hermes-revoke ends it early."
+      - "restic daily systemd timer, Persistent=true (catches up after the machine
+         was off), skipped cleanly when the backup server is unreachable"
+    verification: >
+      fleet/satellite-gate.sh — exits with the number of FAILs. Checks reachability,
+      no ambient root, no extra groups, no open grant window, other homes unreadable,
+      snapshot < 26h, restore of /etc/hostname from the latest snapshot, restic
+      check --read-data-subset=2%, DELETE refused 403 by the append-only server,
+      backup timer enabled, and the applied playbook revision.
+    verified: "2026-09-28 — 0 failures on 2 of 3 machines; the third was offline"
+    not_yet_hardened: >
+      The restrictive tailnet ACL (tag:hermes -> personal machines on :22 only) is
+      NOT in place. Reachability currently relies on the default allow-all policy.
+      Laptop backups assume the backup server is reachable over the tailnet; that
+      path was verified from a laptop on 2026-09-28.
 
 defaults:
   ssh_user: root
@@ -267,6 +302,21 @@ hosts:
   #     before claudebot may ssh to them;
   #   - they are laptops, so treat them as intermittently offline. Any health
   #     check must degrade gracefully rather than alert on absence.
+  #
+  # UPDATED 2026-09-28: three personal machines now run the agent account and
+  # back up to evilbot-nas over restic. The names, addresses, and credentials
+  # stay out of this repo — they live in the local-only inventory on hermesbot
+  # (~/.hermes/fleet/, mode 0700) that the Ansible playbook and the gate script
+  # read. See agent_access.personal_machines for the enforced baseline and for
+  # what is still hardening-pending. Note that the "reachable ONLY via the
+  # evilbot bounce" line above is now known to be WRONG for these: reachability
+  # is direct (LAN where co-located, tailnet otherwise), and the bounce is a
+  # convention, exactly as the `defaults` note says for the guests.
+  #
+  # Also note: a laptop writes to the append-only rest-server on evilbot-nas
+  # over the tailnet, so that listener is reachable from off-LAN. The rest
+  # server grants each machine access to its own repository only
+  # (--private-repos) and refuses deletes (--append-only).
 
   offsite-target:
     kind: external
@@ -295,6 +345,22 @@ backups:
       path: /tank/backups/vzdump
       offsite: false
       note: "~259G. Deliberately excluded from B2 — covered by the off-host rsync leg."
+    - name: personal-machines
+      path: /tank/backups/restic
+      schedule: daily (systemd timer per machine, Persistent=true)
+      offsite: false
+      server: "restic rest-server, --append-only --private-repos, :8000 on evilbot-nas"
+      note: |
+        One repository per personal machine, each visible only to that machine's
+        credentials (--private-repos), and no client can delete its own snapshots
+        (--append-only; a DELETE returns 403). restic credentials per machine live
+        in the local-only host_vars on hermesbot, NOT in this repo. The laptop
+        leg is verified working over the tailnet, so the listener is reachable
+        from off-LAN; it is the only service this repo documents as intentionally
+        reachable from outside the LAN.
+        Per-machine pass criterion (enforced by fleet/satellite-gate.sh):
+        a snapshot < 26h old, /etc/hostname restores from the latest snapshot,
+        and restic check --read-data-subset=2% is clean.
   offhost:
     target: "<offsite-host>"
     method: rsync
