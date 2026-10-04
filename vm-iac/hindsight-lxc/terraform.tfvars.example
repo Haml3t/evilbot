@@ -1,0 +1,22 @@
+# Copy to terraform.tfvars and fill in real values.
+# terraform.tfvars is gitignored — never commit it.
+
+proxmox_api_token = "hermes-lxc@pve!lxc=<token-secret>"
+
+vm_id    = 800
+hostname = "hindsight"
+
+# Defaults are usually fine; adjust if needed:
+cpu_cores    = 2
+memory_mb    = 6144
+disk_storage = "local-lvm"
+disk_size_gb = 24
+
+# Available templates: ssh root@192.168.0.145 "pveam list local"
+template_file_id = "local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst"
+
+# SSH public key for INITIAL root access only. After provisioning, this guest
+# gets the standard fleet treatment: a dedicated unprivileged 'hermes' user +
+# hermes-grant time-boxed sudo, same as every other guest. Root access is not
+# meant to be the long-term story here.
+ssh_public_key = "ssh-ed25519 <your-public-key> your-label"
