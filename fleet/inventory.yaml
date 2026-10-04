@@ -14,7 +14,7 @@
 # real time to discover. Read them before acting on that host.
 
 schema_version: 1
-updated: 2026-09-28
+updated: 2026-10-04
 
 network:
   subnet: 192.168.0.0/24
@@ -302,6 +302,44 @@ hosts:
       - "Runs as unprivileged user `hermes` with NO sudo. Deliberate."
       - "Node 26 needs libatomic1; node-pty needs build-essential. Missing either
          makes the vendor installer fail with a misleading message."
+
+  hindsight:
+    kind: lxc
+    vmid: 800
+    role: memory
+    ip: 192.168.0.128
+    addressing: dhcp
+    gateway: 192.168.0.1
+    unprivileged: true
+    ssh: { user: hermes, via: evilbot }
+    resources: { cores: 2, memory_mb: 6144, disk_gb: 24 }
+    services: [docker, hindsight]
+    service_account: hermes      # non-root, hermes-grant for anything beyond
+                                  # the docker-ps/logs/restart allowlist
+    pool: hermesbots
+    proxmox_token: hermes-lxc@pve!lxc   # scoped to /pool/hermesbots + /storage/local-lvm
+    iac: vm-iac/hindsight-lxc/
+    plan: vm-iac/hindsight-lxc/RUNBOOK.md
+    data: "docker volume hindsight-data — NOT in the nightly vzdump job yet; the
+           memory bank cannot be rebuilt from anything else if lost."
+    traps:
+      - "pool_id is ForceNew — see inferbot/opsbot. Never add/change it on an
+         already-applied module; it plans a destroy."
+      - "DHCP, not static, and not yet reserved on the router. If the lease
+         moves, Hermes silently stops reaching its memory (no error) because
+         the plugin config hardcodes this IP."
+      - "No `tags` and no `keyctl` feature on the LXC — both are checked at
+         /vms/<vmid> ignoring pool rights (tags) or are root@pam-only
+         (keyctl), so the pool-scoped Terraform token can't set them."
+      - "Bridge access (vmbr0) needed PVESDNUser granted explicitly on the
+         token, even with no SDN zone configured — PVE checks SDN.Use on
+         plain bridges too."
+      - "LLM for retain/reflect calls out to Nous Portal (gpt-oss-20b);
+         recall/embeddings/reranking are fully local. No LAN auth bypass:
+         both :8888 (API) and :9999 (dashboard) require keys, generated on
+         the container and never stored in this repo."
+      - "No Tailscale — the LXC has no /dev/net/tun, so it's LAN-only. Other
+         Hermes instances (laptops) can't reach it off-LAN."
 
   # --- External / personal machines -------------------------------------
   # DELIBERATELY NOT ENUMERATED HERE. This repo is public and documents
