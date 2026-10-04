@@ -1,0 +1,22 @@
+# Hindsight memory server — runs inside the hindsight LXC (vmid 800).
+# Deployed to /opt/hindsight/compose.yaml. Secrets live ONLY on the container:
+#   /etc/hindsight/hindsight.env  (agent-generated: auth keys + LLM config)
+#   /etc/hindsight/llm.env        (operator-written: the Nous Portal API key)
+# See hindsight.env.example for the shape. Never commit the real files.
+services:
+  hindsight:
+    image: ghcr.io/vectorize-io/hindsight:0.10.2   # pinned; bump deliberately
+    container_name: hindsight
+    restart: unless-stopped
+    shm_size: 1g                                  # embedded postgres (pg0) needs it
+    env_file:
+      - /etc/hindsight/hindsight.env
+      - /etc/hindsight/llm.env
+    ports:
+      - "8888:8888"   # API           — auth: HINDSIGHT_API_TENANT_API_KEY (bearer)
+      - "9999:9999"   # Control Plane — auth: HINDSIGHT_CP_ACCESS_KEY (login)
+    volumes:
+      - hindsight-data:/home/hindsight/.pg0   # the memory database lives here
+
+volumes:
+  hindsight-data:
