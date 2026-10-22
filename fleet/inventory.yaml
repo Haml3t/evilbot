@@ -303,6 +303,36 @@ hosts:
       - "Node 26 needs libatomic1; node-pty needs build-essential. Missing either
          makes the vendor installer fail with a misleading message."
 
+  logseq:
+    kind: lxc
+    vmid: 810
+    role: pkm-sync
+    ip: 192.168.0.159
+    addressing: dhcp
+    gateway: 192.168.0.1
+    unprivileged: true
+    ssh: { user: hermes, via: evilbot }
+    resources: { cores: 2, memory_mb: 2048, disk_gb: 12 }
+    services: [logseq-sync, logseq-backup.timer]
+    service_account: hermes      # non-root; standing sudo = logseq-sync start/stop/restart,
+                                  # logseq-backup start, install-logseq-cli <ver>; else hermes-grant
+    pool: hermesbots
+    proxmox_token: hermes-lxc@pve!lxc
+    iac: vm-iac/logseq-lxc/
+    plan: vm-iac/logseq-lxc/RUNBOOK.md
+    data: "~hermes/logseq/graphs — synced copy of the operator's Logseq DB graph (Logseq cloud
+           is the source of truth). Hourly CLI snapshots x72 on-box. NOT in the nightly
+           vzdump job until the operator adds vmid 810."
+    traps:
+      - "CLI is extracted from the DESKTOP release (app.asar); npm @logseq/cli is the old
+         pre-sync CLI. Upgrade only after the operator's desktop is on the same version."
+      - "Needs libsecret-1-0 and three modules not in the desktop bundle (installer adds
+         them via NODE_PATH); missing either = 'Worker exited before becoming ready'."
+      - "E2EE password persisted in ~hermes/logseq/kv-store.json (no keychain daemon)."
+      - "No MCP in the CLI as of 2.0.2 — Hermes uses `ssh logseq logseq ...`."
+      - "DHCP, not reserved on the router — same trap as hindsight."
+      - "pool_id is ForceNew — never change it on the applied module."
+
   # --- External / personal machines -------------------------------------
   # DELIBERATELY NOT ENUMERATED HERE. This repo is public and documents
   # infrastructure only; the operator's personal desktop and laptops are not
