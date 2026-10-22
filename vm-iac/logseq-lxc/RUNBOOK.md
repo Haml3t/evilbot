@@ -54,23 +54,25 @@ pvesh set /cluster/backup/nightly-guests --vmid 100,200,300,400,700,800,810
 pvesh get /cluster/backup/nightly-guests --output-format json | grep -o '"vmid":"[^"]*"'
 ```
 
-**B. Log in and do the first sync.** Secrets are typed only here and never sent to Hermes. Run as root on evilbot:
+**B. Log in (browser flow) and do the first sync.** Secrets are typed only here and never sent to Hermes.
+CT 810 has no browser, so `~hermes/bin/xdg-open` is a shim that prints the URL. The callback
+listens on CT 810's `[::1]:8765`. The operator's browser redirect fails, and the operator replays
+that redirect URL locally with curl. Use two shells, both via `pct enter 810` then `su - hermes`:
 ```
-pct enter 810
-su - hermes
-read -rp 'Logseq account email: ' U; read -rsp 'Logseq password: ' P; echo
-logseq login --username "$U" --password "$P"; unset P
-logseq sync remote-graphs                      # note the exact graph name
+# shell 1
+logseq login                       # prints "OPEN THIS URL: ..." and waits (5 min)
+# browser: open the URL, sign in. It redirects to http://localhost:8765/auth/callback?code=...&state=...
+# and the page fails to load. Copy that whole address-bar URL.
+# shell 2
+read -rp 'callback URL: ' C; curl -sg "${C/localhost/[::1]}"; unset C
+# shell 1 now exits logged in. Then:
+logseq sync remote-graphs
 G='<graph name>'
 read -rsp 'Graph E2EE password: ' E; echo
 logseq sync download --graph "$G" --e2ee-password "$E" --progress
-logseq sync start    --graph "$G" --e2ee-password "$E"   # persists E2EE pw to kv-store.json
-unset E
+logseq sync start    --graph "$G" --e2ee-password "$E"; unset E
 sed -i "s/^GRAPH=.*/GRAPH=$G/" ~/.config/logseq-sync.env
-exit; exit
 ```
-If password login fails (MFA, or a Google/Apple sign-in account), stop and tell Hermes.
-The browser flow needs a localhost:8765 callback on CT 810, which takes a different setup.
 
 **Gate:** Hermes runs `logseq sync status --graph "$G" -o json` and gets `ws-state: open`.
 A test block written on CT 810 then appears on the desktop app, and a block written there appears on CT 810.
