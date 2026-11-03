@@ -1,0 +1,43 @@
+# Installed by the RUNBOOK into /etc/systemd/system/ on CT 810. One file per section.
+
+### logseq-sync.service
+[Unit]
+Description=Logseq DB sync client (headless, graph from ~hermes/.config/logseq-sync.env)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=hermes
+Group=hermes
+Environment=HOME=/home/hermes
+ExecStart=/usr/local/bin/logseq-sync-loop
+KillMode=control-group
+Restart=always
+RestartSec=30
+MemoryMax=1536M
+
+[Install]
+WantedBy=multi-user.target
+
+### logseq-backup.service
+[Unit]
+Description=Hourly Logseq graph snapshot (keep 72)
+
+[Service]
+Type=oneshot
+User=hermes
+Group=hermes
+Environment=HOME=/home/hermes
+ExecStart=/usr/local/bin/logseq-backup
+
+### logseq-backup.timer
+[Unit]
+Description=Hourly Logseq graph snapshot
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target
