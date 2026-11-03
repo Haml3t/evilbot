@@ -48,34 +48,38 @@ start `logseq-backup.service`, and `install-logseq-cli <x.y.z>`. Everything else
 
 ## Operator steps (once)
 
-**A. Add CT 810 (and the missing 700/800) to the nightly vzdump.** Run as root on evilbot:
-```
-pvesh set /cluster/backup/nightly-guests --vmid 100,200,300,400,700,800,810
-pvesh get /cluster/backup/nightly-guests --output-format json | grep -o '"vmid":"[^"]*"'
-```
+**A. Nightly vzdump** — done 2026-10-27: `nightly-guests` now covers `100,200,300,400,700,800,810`.
+Check with `pvesh get /cluster/backup/nightly-guests --output-format json | grep -o '"vmid":"[^"]*"'`.
 
-**B. Log in (browser flow) and do the first sync.** Secrets are typed only here and never sent to Hermes.
-CT 810 has no browser, so `~hermes/bin/xdg-open` is a shim that prints the URL. The callback
-listens on CT 810's `[::1]:8765`. The operator's browser redirect fails, and the operator replays
-that redirect URL locally with curl. Use two shells, both via `pct enter 810` then `su - hermes`:
+**B. Log in (browser flow only).** Password login (`--username/--password`) does not work for
+accounts that use Google/Apple sign-in. The CLI calls `xdg-open`, which CT 810 doesn't have, so
+`~hermes/bin/xdg-open` is a shim (on PATH via `~/.profile`, so use `su - hermes`). It writes the
+URL to `~/login-url`. The callback listens on CT 810's `[::1]:8765`, so the browser redirect fails
+and you replay it with curl. Use two shells, both via `pct enter 810` then `su - hermes`:
 ```
-# shell 1
-logseq login                       # prints "OPEN THIS URL: ..." and waits (5 min)
-# browser: open the URL, sign in. It redirects to http://localhost:8765/auth/callback?code=...&state=...
-# and the page fails to load. Copy that whole address-bar URL.
+# shell 1: leave it running, don't Ctrl-C (it waits about 5 minutes)
+logseq login
 # shell 2
+cat ~/login-url              # open in browser, sign in, copy the failed localhost:8765/auth/callback?... URL
 read -rp 'callback URL: ' C; curl -sg "${C/localhost/[::1]}"; unset C
-# shell 1 now exits logged in. Then:
-logseq sync remote-graphs
-G='<graph name>'
-read -rsp 'Graph E2EE password: ' E; echo
+```
+Shell 1 then writes `~/logseq/auth.json`. Tokens refresh by themselves after that.
+
+**C. First sync.** The graph must already exist remotely, created and synced from the desktop app.
+```
+G=<graph name>
+read -rsp 'E2EE password: ' E; echo
 logseq sync download --graph "$G" --e2ee-password "$E" --progress
-logseq sync start    --graph "$G" --e2ee-password "$E"; unset E
+logseq sync start    --graph "$G" --e2ee-password "$E" --timeout-ms 30000; unset E
 sed -i "s/^GRAPH=.*/GRAPH=$G/" ~/.config/logseq-sync.env
 ```
+`sync remote-graphs` needs `--graph` and does not list all remote graphs. Get the name from the desktop app.
+If `sync start` times out and `~/logseq/graphs/$G/db-worker-node-*.log` shows
+`:client-op-not-ready`, make one edit in the desktop app, let it sync, then run
+`logseq graph remove --graph "$G"` and repeat C.
 
-**Gate:** Hermes runs `logseq sync status --graph "$G" -o json` and gets `ws-state: open`.
-A test block written on CT 810 then appears on the desktop app, and a block written there appears on CT 810.
+**Gate (passed 2026-10-27):** `sync status` shows `ws-state: open` and `pending-local: 0`. A page written
+on CT 810 shows up on the desktop and the phone.
 
 ## Upgrades
 

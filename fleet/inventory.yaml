@@ -321,14 +321,19 @@ hosts:
     iac: vm-iac/logseq-lxc/
     plan: vm-iac/logseq-lxc/RUNBOOK.md
     data: "~hermes/logseq/graphs — synced copy of the operator's Logseq DB graph (Logseq cloud
-           is the source of truth). Hourly CLI snapshots x72 on-box. NOT in the nightly
-           vzdump job until the operator adds vmid 810."
+           is the source of truth). Hourly CLI snapshots x72 on-box + nightly vzdump (vmid 810
+           added to nightly-guests 2026-10-27)."
     traps:
       - "CLI is extracted from the DESKTOP release (app.asar); npm @logseq/cli is the old
          pre-sync CLI. Upgrade only after the operator's desktop is on the same version."
       - "Needs libsecret-1-0 and three modules not in the desktop bundle (installer adds
          them via NODE_PATH); missing either = 'Worker exited before becoming ready'."
       - "E2EE password persisted in ~hermes/logseq/kv-store.json (no keychain daemon)."
+      - "Login is the browser flow only (password login fails for social sign-in accounts).
+         ~hermes/bin/xdg-open shim captures the URL; see RUNBOOK step B."
+      - "sync start fails 'websocket timeout' with :client-op-not-ready in the worker log
+         if the graph was pulled before any device pushed ops. Fix: edit once on the
+         desktop, then graph remove + sync download again."
       - "No MCP in the CLI as of 2.0.2 — Hermes uses `ssh logseq logseq ...`."
       - "DHCP, not reserved on the router — same trap as hindsight."
       - "pool_id is ForceNew — never change it on the applied module."
