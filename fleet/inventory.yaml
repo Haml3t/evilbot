@@ -312,7 +312,7 @@ hosts:
     gateway: 192.168.0.1
     unprivileged: true
     ssh: { user: hermes, via: evilbot }
-    resources: { cores: 2, memory_mb: 2048, disk_gb: 12 }
+    resources: { cores: 2, memory_mb: 4096, disk_gb: 12 }
     services: [logseq-sync, logseq-backup.timer]
     service_account: hermes      # non-root; standing sudo = logseq-sync start/stop/restart,
                                   # logseq-backup start, install-logseq-cli <ver>; else hermes-grant
