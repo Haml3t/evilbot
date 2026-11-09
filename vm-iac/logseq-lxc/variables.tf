@@ -23,9 +23,9 @@ variable "cpu_cores" {
 }
 
 variable "memory_mb" {
-  description = "RAM in MB — Node CLI + db-worker-node for one graph; 2 GB is ample"
+  description = "RAM in MB — Node CLI + db-worker-node; 4 GB so a full-graph sqlite import (sandbox copy) fits"
   type        = number
-  default     = 2048
+  default     = 4096
 }
 
 variable "disk_storage" {
