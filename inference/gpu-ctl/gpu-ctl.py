@@ -75,6 +75,35 @@ VLLM_COMPLETIONS_URL = CONFIG.get("vllm", {}).get(
     "completions_url", "http://127.0.0.1:8000/v1/completions")
 SERVICES = CONFIG.get("services", {})  # name -> {"start": [...], "stop": [...]}
 
+# Gaming take-back (friend-cluster phase 1). When a game process appears, the
+# watcher does an automatic lockout; when every game has been gone for
+# release_grace_s it lifts ITS OWN lockout (a manual /lockout is never lifted
+# automatically). Patterns are matched against /proc/<pid>/cmdline.
+GAME = CONFIG.get("game_watch", {})
+GAME_ENABLED = bool(GAME.get("enabled", False))
+GAME_INTERVAL = float(GAME.get("interval_s", 5))
+GAME_GRACE = float(GAME.get("release_grace_s", 120))
+GAME_PATTERNS = [p.lower() for p in GAME.get("patterns", [
+    "steamlaunch", "/steamapps/common/", "rpcs3", "prismlauncher",
+    "net.minecraft", "wine64-preloader"])]
+GAME_IGNORE = [p.lower() for p in GAME.get("ignore", ["steamwebhelper"])]
+
+# Idle stop: vLLM holds ~21 GB even when nobody calls it. Stop it after
+# idle_minutes with no new requests (counter read from vLLM /metrics); the
+# next /vllm/completions starts it again (~36 s cold start).
+IDLE = CONFIG.get("idle_stop", {})
+IDLE_ENABLED = bool(IDLE.get("enabled", False))
+IDLE_SECONDS = float(IDLE.get("idle_minutes", 30)) * 60
+VLLM_METRICS_URL = CONFIG.get("vllm", {}).get("metrics_url", "http://127.0.0.1:8000/metrics")
+AUTOSTART = bool(CONFIG.get("autostart_on_request", True))
+
+# Lock reason: "manual" (operator /lockout) or "game" (watcher). Kept beside
+# the lock file so a gpu-ctl restart doesn't forget who set it.
+LOCK_REASON_FILE = LOCK_FILE + ".reason"
+_last_activity = time.monotonic()
+_last_req_count = None
+_watch_status = {"games": [], "last_check": None, "events": []}
+
 _STATE_LOCK = threading.Lock()
 
 
@@ -139,14 +168,33 @@ def locked() -> bool:
     return os.path.exists(LOCK_FILE)
 
 
-def set_locked(val: bool) -> None:
+def set_locked(val: bool, reason: str = "manual") -> None:
     if val:
         open(LOCK_FILE, "w").close()
+        with open(LOCK_REASON_FILE, "w") as f:
+            f.write(reason)
     else:
-        try:
-            os.remove(LOCK_FILE)
-        except FileNotFoundError:
-            pass
+        for path in (LOCK_FILE, LOCK_REASON_FILE):
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+
+
+def lock_reason() -> str | None:
+    if not locked():
+        return None
+    try:
+        with open(LOCK_REASON_FILE) as f:
+            return f.read().strip() or "manual"
+    except FileNotFoundError:
+        return "manual"
+
+
+def _event(msg: str) -> None:
+    line = time.strftime("%Y-%m-%dT%H:%M:%S") + " " + msg
+    print(line, flush=True)
+    _watch_status["events"] = (_watch_status["events"] + [line])[-20:]
 
 
 def vllm_unit_active() -> bool:
@@ -190,7 +238,7 @@ def stop_vllm() -> dict:
     return {"loaded": False}
 
 
-def do_lockout() -> dict:
+def do_lockout(reason: str = "manual") -> dict:
     stopped = []
     with _STATE_LOCK:
         # vLLM first (largest resident), then the services the operator listed.
@@ -206,8 +254,8 @@ def do_lockout() -> dict:
                 # fine; surface only genuine failures.
                 if "inactive" not in (err or "") and "not loaded" not in (err or ""):
                     stopped.append(f"{name}(failed: {err or 'rc=%d' % code})")
-        set_locked(True)
-    return {"locked": True, "stopped": stopped}
+        set_locked(True, reason)
+    return {"locked": True, "reason": reason, "stopped": stopped}
 
 
 def do_unlock() -> dict:
@@ -219,7 +267,21 @@ def vllm_completions(payload: dict) -> tuple[int, dict]:
     """Forward a raw /v1/completions request to vLLM, injecting the API key.
 
     The key lives only on this host (in the env file); the proxy never sees it.
+    If vLLM is down (idle-stopped) it is started first, unless the card is
+    locked out (gaming): then 503 with retry_after so callers back off.
     """
+    global _last_activity
+    _last_activity = time.monotonic()
+    if not vllm_ready():
+        if locked():
+            return 503, {"error": "gpu locked out", "reason": lock_reason(),
+                         "retry_after_s": int(GAME_GRACE)}
+        if not AUTOSTART:
+            return 503, {"error": "vllm not loaded"}
+        try:
+            start_vllm()
+        except Exception as exc:
+            return 503, {"error": f"vllm start failed: {exc}"}
     body = json.dumps(payload).encode()
     req = urllib.request.Request(
         VLLM_COMPLETIONS_URL, data=body, method="POST",
@@ -236,9 +298,88 @@ def vllm_completions(payload: dict) -> tuple[int, dict]:
         return 502, {"error": str(exc)}
 
 
+# ---------------------------------------------------------------------------
+# watchers: gaming take-back + idle stop
+# ---------------------------------------------------------------------------
+
+def running_games() -> list[str]:
+    hits = []
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        try:
+            with open(f"/proc/{pid}/cmdline", "rb") as f:
+                cmd = f.read().replace(b"\0", b" ").decode(errors="replace").lower()
+        except OSError:
+            continue
+        if not cmd or any(i in cmd for i in GAME_IGNORE):
+            continue
+        for pat in GAME_PATTERNS:
+            if pat in cmd:
+                hits.append(f"{pid}:{pat}")
+                break
+    return hits
+
+
+def vllm_request_count() -> float | None:
+    """Total requests vLLM has seen (success + running + waiting)."""
+    try:
+        with urllib.request.urlopen(VLLM_METRICS_URL, timeout=3) as r:
+            text = r.read().decode()
+    except Exception:
+        return None
+    total = 0.0
+    for line in text.splitlines():
+        if line.startswith(("vllm:request_success_total", "vllm:num_requests_running",
+                            "vllm:num_requests_waiting")):
+            try:
+                total += float(line.rsplit(" ", 1)[1])
+            except ValueError:
+                pass
+    return total
+
+
+def watch_loop() -> None:
+    global _last_activity, _last_req_count
+    gone_since = None
+    while True:
+        try:
+            now = time.monotonic()
+            if GAME_ENABLED:
+                games = running_games()
+                _watch_status["games"] = games
+                reason = lock_reason()
+                if games:
+                    gone_since = None
+                    if reason is None:
+                        r = do_lockout("game")
+                        _event(f"game detected {games[:3]} -> lockout, stopped {r['stopped']}")
+                elif reason == "game":
+                    gone_since = gone_since or now
+                    if now - gone_since >= GAME_GRACE:
+                        do_unlock()
+                        gone_since = None
+                        _event("no game for %ds -> unlocked (vLLM starts on next request)" % GAME_GRACE)
+            if IDLE_ENABLED and not locked():
+                n = vllm_request_count()
+                if n is not None and n != _last_req_count:
+                    _last_req_count = n
+                    _last_activity = now
+                if n is not None and vllm_unit_active() and now - _last_activity >= IDLE_SECONDS:
+                    stop_vllm()
+                    _event("vLLM idle %d min -> stopped" % (IDLE_SECONDS // 60))
+            _watch_status["last_check"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+        except Exception as exc:
+            _event(f"watch error: {exc}")
+        time.sleep(GAME_INTERVAL)
+
+
 def build_state() -> dict:
     return {
         "locked": locked(),
+        "lock_reason": lock_reason(),
+        "watch": {"game_watch": GAME_ENABLED, "idle_stop": IDLE_ENABLED,
+                  "idle_s": round(time.monotonic() - _last_activity), **_watch_status},
         "vllm": {"unit": VLLM_UNIT, "unit_active": vllm_unit_active(),
                  "loaded": vllm_ready()},
         "vram": nvidia_smi_vram(),
@@ -315,7 +456,9 @@ def main():
     if not TOKEN:
         print("WARNING: no GPU_CTL_TOKEN set and no token in config — agent is unauthenticated",
               file=sys.stderr)
-    srv = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
+    if GAME_ENABLED or IDLE_ENABLED:
+        threading.Thread(target=watch_loop, daemon=True).start()
+    srv = ThreadingHTTPServer((CONFIG.get("bind", "0.0.0.0"), PORT), Handler)
     print(f"gpu-ctl listening on :{PORT}")
     srv.serve_forever()
 

@@ -7,6 +7,35 @@ lockout. gpu-ctl owns those privileged bits.
 
 Run everything below as root (or with sudo) ON gpu-desktop.
 
+## 0. Quick install (friend-cluster phase 1)
+
+```bash
+git clone https://github.com/Haml3t/evilbot.git && cd evilbot   # or git pull
+git checkout fc-p1-gpu-sharing    # until merged
+sudo bash inference/gpu-ctl/install.sh
+```
+
+That does steps 1-4 below with the phase-1 config: game watch on (Steam,
+RPCS3, Prism/Minecraft, Wine), idle stop after 30 min, ComfyUI `/free` as the
+only extra service (ComfyUI runs in docker here, not Nomad). It also copies
+the token to `/etc/gpu-ctl.hermes-token` (group hermes) so Hermes can call
+`/state`, `/lockout`, `/unlock`.
+
+### Gaming take-back (what changes for the operator)
+
+- Start a game -> within ~5 s gpu-ctl stops vLLM and frees ComfyUI's models
+  (`lock_reason: game`). Nothing to click.
+- Quit -> after 120 s with no game running the lock lifts. vLLM stays down
+  until something asks for it (next `/vllm/completions` starts it, ~36 s).
+- `POST /lockout` by hand = `lock_reason: manual`; the watcher never lifts a
+  manual lock. `POST /unlock` lifts either.
+- While locked, `/vllm/completions` returns 503 + `retry_after_s`.
+- Idle stop: with no new vLLM requests for 30 min, vLLM is stopped (frees
+  ~21 GB). Callers should go through `/vllm/completions` on :9840, which starts
+  it on demand; direct calls to :8000 fail while it's stopped.
+- Detection = substring match on /proc cmdlines (`game_watch.patterns`). Add a
+  pattern for any launcher it misses; `GET /state` shows `watch.games`.
+
 ## 1. Install files
 
 ```bash
