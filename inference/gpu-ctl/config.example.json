@@ -1,0 +1,34 @@
+{
+  "token": "REPLACE_WITH_openssl_rand_hex_32",
+  "port": 9840,
+  "bind": "0.0.0.0",
+  "lock_file": "/run/gpu-ctl.lock",
+  "autostart_on_request": true,
+  "vllm": {
+    "unit": "vllm-donnertune",
+    "ready_url": "http://127.0.0.1:8000/v1/models",
+    "completions_url": "http://127.0.0.1:8000/v1/completions",
+    "metrics_url": "http://127.0.0.1:8000/metrics",
+    "ready_timeout_s": 300,
+    "api_key_file": "/etc/vllm-donnertune.env"
+  },
+  "services": {
+    "comfyui-free": {
+      "stop": ["curl", "-s", "-m", "10", "-X", "POST", "http://127.0.0.1:8188/free",
+               "-H", "content-type: application/json",
+               "-d", "{\"unload_models\":true,\"free_memory\":true}"]
+    }
+  },
+  "game_watch": {
+    "enabled": true,
+    "interval_s": 5,
+    "release_grace_s": 120,
+    "patterns": ["steamlaunch", "/steamapps/common/", "rpcs3", "prismlauncher",
+                 "net.minecraft", "wine64-preloader"],
+    "ignore": ["steamwebhelper"]
+  },
+  "idle_stop": {
+    "enabled": true,
+    "idle_minutes": 30
+  }
+}
