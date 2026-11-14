@@ -28,7 +28,7 @@ cloud sync (db-sync). No listening ports. Hermes has full read/write access by d
 | `/usr/local/bin/logseq` | wrapper |
 | `/usr/local/sbin/install-logseq-cli` | installer/upgrader (`install-logseq-cli.sh`) |
 | `/usr/local/bin/logseq-sync-loop` | keeps `sync start` alive (`logseq-sync.service`) |
-| `/usr/local/bin/logseq-backup` | hourly snapshot, keep 72 (`logseq-backup.timer`) |
+| `/usr/local/bin/logseq-backup` | hourly snapshot; keeps 24h hourly + 8-hourly for 7d, manual snapshots 48h (`logseq-backup.timer`) |
 | `~hermes/.config/logseq-sync.env` | `GRAPH=<name>` — which graph to sync |
 | `~hermes/logseq/` | CLI root: graphs, auth.json, kv-store.json, cli.edn |
 

@@ -21,7 +21,7 @@ WantedBy=multi-user.target
 
 ### logseq-backup.service
 [Unit]
-Description=Hourly Logseq graph snapshot (keep 72)
+Description=Hourly Logseq graph snapshot (24h hourly, 7d at 8h, manual 48h)
 
 [Service]
 Type=oneshot
