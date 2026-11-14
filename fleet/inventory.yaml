@@ -321,7 +321,7 @@ hosts:
     iac: vm-iac/logseq-lxc/
     plan: vm-iac/logseq-lxc/RUNBOOK.md
     data: "~hermes/logseq/graphs — synced copy of the operator's Logseq DB graph (Logseq cloud
-           is the source of truth). Hourly CLI snapshots x72 on-box + nightly vzdump (vmid 810
+           is the source of truth). CLI snapshots on-box (24h hourly, 7d 8-hourly, manual 48h) + nightly vzdump (vmid 810
            added to nightly-guests 2026-10-27)."
     traps:
       - "CLI is extracted from the DESKTOP release (app.asar); npm @logseq/cli is the old
