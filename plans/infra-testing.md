@@ -214,14 +214,23 @@ tests/
 
 ## Phase 5: CI/CD — Run Tests on Every Push
 
-Use a **self-hosted GitHub Actions runner** on claudebot. On every push to `main`:
+Use a **self-hosted GitHub Actions runner**. On every push to `main`:
 1. Run the BATS test suite against live services (smoke test — fast)
 2. Weekly: run the full IaC reprovision test for Jellyfin (slower)
+
+> **Correction (2026-08-31, Hermes agent).** The plan below places the runner on
+> **claudebot (vmid 300)**. That is no longer right: claudebot is explicitly
+> "another agent's workspace, not infrastructure" (§2 of the handoff) and is the
+> only host deliberately excluded from Hermes' access. A CI runner on it would be
+> unreachable, unmaintainable, and wrong per the access model. The runner belongs
+> on a host Hermes can administer — **opsbot (600)** or **inferbot (500)**, both
+> Tier 1/2 — or a new dedicated runner LXC. Open question 1 below stays open but
+> claudebot is ruled out.
 
 ### Setup
 
 ```bash
-# On claudebot — install GitHub Actions runner
+# On the runner host (opsbot/inferbot, NOT claudebot) — install GitHub Actions runner
 mkdir -p /opt/actions-runner && cd /opt/actions-runner
 curl -o runner.tar.gz -L https://github.com/actions/runner/releases/latest/download/actions-runner-linux-x64-*.tar.gz
 tar xzf runner.tar.gz
@@ -250,13 +259,52 @@ jobs:
         run: bats tests/
 ```
 
+### CI blocker discovered 2026-08-31 (do not discover it again)
+
+`main` now has **branch protection** (require a pull request, block force push,
+block deletions). A self-hosted runner needs a registration token from
+`repo → Settings → Actions → Runners`, and a runner that can reach the fleet to
+run live smoke tests also has the credentials to write secrets. Treat the
+runner's SSH key and any token on it as Tier 1/2-equivalent: scoped to the
+fleet it tests, rotated, and audited. This is the same authority-tier reasoning
+as `grant-hermes-sudo.sh`.
+
 ---
 
 ## Open Questions
 
-- Where does the self-hosted runner run — claudebot (vmid 300) or a dedicated runner LXC?
+- Where does the self-hosted runner run — ~~claudebot (vmid 300)~~ or a dedicated
+  runner LXC? (Ruled out claudebot 2026-08-31; prefer opsbot/inferbot.)
 - Should the weekly IaC reprovision test use a spare VMID range (e.g. 900-999)?
 - Backup storage: add `/tank/backups` as a Proxmox storage now, or wait until Ansible
   manages the host config?
 - Should failed tests send a Telegram notification via evilbot?
   (Good use of the existing bot — infra alerting.)
+
+## Reconciliation notes (2026-08-31, Hermes agent)
+
+Facts that have drifted since this plan was written; the plan body above is
+left intact except where explicitly corrected:
+
+1. **evilbot-nas "Complete" verdict is too strong.** Phase 1's table marks
+   `evilbot-nas` ✅ Complete with a "migrated to bpg/proxmox" note. The Terraform
+   module is now hardened (pinned MAC, discard/ssd, ostype, outputs, pool_id
+   warning — see `fix/nas-iac-status-and-gaps`, merged) but is still
+   *verified-by-inspection only*: no `terraform plan` against the live host has
+   run because that needs the `terraform-lxc@pve!lxc` token, which lives in the
+   secrets vault that is only now being built. Bump the verdict to "module
+   exists + validates; not yet plan-verified against live host."
+2. **Phase 3's `pct restore` / `qm restore` binary is fragile.** The script
+   guesses the tool from VMID parity; VM 100 is a qemu VM (`qm`), containers are
+   `pct`, and the `||` fallback would mis-restore on a partial failure. Worth
+   pinning per-service in the helper, not probing.
+3. **The NAS "service" is a trap.** `transmission-watch` is a custom unit, not a
+   package service — Phase 4 already tests it, correctly, but the `restart the
+   daemon after any watch change` trap (inventory) should be a BATS test too:
+   restart `transmission-daemon`, then assert `transmission-watch` is still
+   active.
+4. **The donnertune/vLLM service is absent** from both the IaC table and the
+   test suite (it postdates this plan). When it lands on gpu-desktop it needs its own
+   smoke test: `:8000/v1/models` returns the fp8 model, and a completion returns
+   the `[donnerism]` format.
+
