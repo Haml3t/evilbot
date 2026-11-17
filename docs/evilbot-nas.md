@@ -87,6 +87,17 @@ Authentication: local Unix users; `map to guest = Bad User`
 | `tank_all` | `/tank` | read/write: `admin` only (not browseable) |
 
 Groups: `mediagroup`, `mediaadmingroup`, `user2group`  
+
+### Agent access (hermes)
+
+The `hermes` account (SSH from hermesbot) is in `mediagroup` and `adm`.
+- **Can write:** everything under `/tank/media` (setgid `mediagroup`) and `/tank/private`.
+- **Cannot write:** the top level of `/tank` and `/tank/backups` (`root:mediaadmingroup`).
+- **sudo (NOPASSWD, scoped):** `systemctl restart|status` for `transmission-daemon` and
+  `transmission-watch`, `cat` of the two Transmission config files, and `transmission-remote`
+  as `debian-transmission`. Nothing else.
+
+Verified 2026-10-13 with `id`, `sudo -n -l`, and a touch/rm test in each directory.
 Local users: `admin`, `user2`, `mediaadmin`, `mediauser`
 
 ### Tailscale

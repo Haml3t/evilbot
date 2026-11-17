@@ -49,6 +49,13 @@ agent_access:
     granted: 2026-08-30
     tier_1_2: [devbox-301, jellyfin, inferbot, opsbot]   # NOPASSWD: ALL
     tier_3_4: [evilbot-nas, evilbot-telegram, evilbot]   # read-only; scoped list TBD
+    nas_file_access:
+      host: evilbot-nas
+      mechanism: "hermes in mediagroup (+adm). Unix group perms, NOT sudo."
+      write: [/tank/media/**, /tank/private]
+      no_write: [/tank (root), /tank/backups]   # root:mediaadmingroup
+      sudo_scoped: "systemctl restart/status transmission-daemon|transmission-watch, cat transmission configs, transmission-remote as debian-transmission"
+      verified: "2026-10-13 - id + sudo -l + touch/rm write test in each dir as hermes"
     audit:
       command_log: /var/log/sudo-hermes.log
       io_replay: /var/log/sudo-io/hermes/
