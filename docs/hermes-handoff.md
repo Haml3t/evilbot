@@ -171,14 +171,24 @@ someone runs `terraform plan` with real credentials, this module is
 
 ### P1 — Build the secrets vault
 
-Decided 2026-08-30, not built. A **local-only bare git repo** at `/tank/vault/secrets.git`, mode
+Decided 2026-08-30. A **local-only bare git repo** at `/tank/vault/secrets.git`, mode
 700 root — deliberately not a private GitHub repo, to keep credentials off GitHub entirely.
 
-Then add `/tank/vault` to `BACKUP_PATHS` in `restic-offsite-backup.sh`; restic encrypts
-client-side, so the B2 copy is safe and is the only durable protection that store gets.
+**Status 2026-08-31: built and seeded (human).** `/tank/vault` exists (mode 2700 root,
+group uid 1005 with no name — harmless), `/tank/vault` is in `BACKUP_PATHS` in
+`restic-offsite-backup.sh`, and the bare `secrets.git` has been initialized and seeded
+with the first credentials. The path is restic-backed (client-side encrypted, the only
+offsite copy this store gets).
 
-Until this exists you can read a complete map of the fleet and administer very little of it —
-there are no tfvars, tokens, or credentials anywhere you can reach.
+Remaining, not yet verified by the agent:
+- Confirm the seeded secrets actually include the read-only Proxmox token and the
+  donnertune downloader keys (the agent cannot read the vault at layer 3 — correct).
+- Confirm the next restic run picks up `/tank/vault` (the 2026-08-30 log shows it
+  backing up only `host-config`/`host-system`; the vault predates that run's snapshot
+  and should appear in the next nightly run).
+
+Until this existed you could read a complete map of the fleet and administer very little of it —
+there were no tfvars, tokens, or credentials anywhere you could reach.
 
 ### P2 — Scrub tank after the corruption clears
 
