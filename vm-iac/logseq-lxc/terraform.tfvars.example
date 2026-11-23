@@ -10,7 +10,7 @@ hostname = "logseq"
 cpu_cores    = 2
 memory_mb    = 2048
 disk_storage = "local-lvm"
-disk_size_gb = 12
+disk_size_gb = 20
 
 # Available templates: ssh root@192.168.0.145 "pveam list local"
 template_file_id = "local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst"
