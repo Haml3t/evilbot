@@ -37,7 +37,7 @@ variable "disk_storage" {
 variable "disk_size_gb" {
   description = "Root disk size in GB — OS + Node + graph + local graph backups"
   type        = number
-  default     = 12
+  default     = 20
 }
 
 variable "template_file_id" {
